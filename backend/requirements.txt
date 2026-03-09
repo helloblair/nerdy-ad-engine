@@ -1,2 +1,10 @@
 fastapi
 uvicorn
+langgraph
+langchain-google-genai
+langchain-anthropic
+anthropic
+langfuse
+python-dotenv
+pydantic
+supabase
