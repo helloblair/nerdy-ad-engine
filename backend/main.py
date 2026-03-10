@@ -161,7 +161,7 @@ def rate_ad(ad_id: str, rating: dict):
 @app.get("/analytics/confusion-matrix")
 def get_confusion_matrix():
     try:
-        ratings = supabase.table("human_ratings").select("*, ads(aggregate_score, status)").execute()
+        ratings = supabase.table("human_ratings").select("*, ads(status)").execute()
         if not ratings.data:
             return {"matrix": {}, "metrics": {}, "total_ratings": 0}
         tp = fp = tn = fn = 0
