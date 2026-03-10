@@ -22,6 +22,7 @@ from supabase import create_client
 from writer_agent import WriterAgent, WriterInput, CampaignBrief, GeneratedAd
 from evaluator_agent import EvaluatorAgent, AdContent, EvaluationResult
 from fixer_agent import FixerAgent, EvalSummary, FixerOutput
+from researcher_agent import ResearcherAgent
 
 load_dotenv()
 
@@ -39,12 +40,14 @@ class AdState(TypedDict):
     escalated: bool
     final_ad_id: Optional[str]
     all_evaluations: list
+    research_context: Optional[str]
 
 # ─── Clients ─────────────────────────────────────────────────────────────────
 
 writer = WriterAgent()
 evaluator = EvaluatorAgent()
 fixer = FixerAgent()
+researcher = ResearcherAgent()
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_ANON_KEY")
@@ -60,6 +63,7 @@ def write_node(state: AdState) -> AdState:
         brief=CampaignBrief(**state["brief"]),
         fixer_feedback=fix["targeted_instruction"] if fix and not fix.get("escalate") else None,
         weakest_dimension=fix["dimension_to_fix"] if fix else None,
+        research_context=state.get("research_context"),
         iteration=iteration,
     )
     ad = writer.generate(writer_input)
@@ -216,6 +220,7 @@ def run_pipeline(campaign_id: str, brief: CampaignBrief) -> AdState:
         "escalated": False,
         "final_ad_id": None,
         "all_evaluations": [],
+        "research_context": researcher.format_for_prompt(researcher.extract_context()),
     }
     return pipeline.invoke(initial_state)
 

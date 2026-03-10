@@ -28,6 +28,7 @@ class WriterInput(BaseModel):
     fixer_feedback: Optional[str] = None
     weakest_dimension: Optional[str] = None
     iteration: int = 1
+    research_context: Optional[str] = None
 
 class GeneratedAd(BaseModel):
     primary_text: str
@@ -57,6 +58,9 @@ Tone: {brief.tone}"""
             prompt += f"\nKey Benefit: {brief.key_benefit}"
         if brief.proof_point:
             prompt += f"\nProof Point: {brief.proof_point}"
+        if input.research_context:
+            prompt += f"\n\n{input.research_context}"
+
         if input.fixer_feedback:
             prompt += f"\nREVISION #{input.iteration} — Fix this: {input.fixer_feedback}"
         prompt += """
@@ -74,7 +78,7 @@ Return ONLY a raw JSON object, no markdown, no backticks:
                     config=types.GenerateContentConfig(
                         system_instruction=self.SYSTEM_PROMPT,
                         temperature=0.8,
-                        max_output_tokens=1024,
+                        max_output_tokens=2048,
                     )
                 )
                 raw = response.text.strip()
