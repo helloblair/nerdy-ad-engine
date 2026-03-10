@@ -1,26 +1,18 @@
-@import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { --bg: #080c14; --surface: #0f1520; --surface2: #162030; --border: #1e2d42; --accent: #00e5a0; --accent2: #0ea5e9; --warn: #f59e0b; --danger: #ef4444; --text: #e2eaf4; --muted: #4a6080; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+.mono { font-family: 'Space Mono', monospace; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+.card:hover { border-color: var(--accent); transition: border-color 0.2s; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; font-family: 'Space Mono', monospace; }
+.badge-approved { background: #00e5a015; color: var(--accent); border: 1px solid #00e5a030; }
+.badge-flagged { background: #ef444415; color: var(--danger); border: 1px solid #ef444430; }
+.badge-pending { background: #f59e0b15; color: var(--warn); border: 1px solid #f59e0b30; }
+.badge-running { background: #0ea5e915; color: var(--accent2); border: 1px solid #0ea5e930; }
+.badge-completed { background: #00e5a015; color: var(--accent); border: 1px solid #00e5a030; }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 1.5s infinite; }
