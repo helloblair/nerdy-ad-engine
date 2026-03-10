@@ -32,6 +32,9 @@ STEPS = {
     "supabase_created":          {"phase": 1, "name": "Supabase project created"},
     "fly_secrets_set":           {"phase": 1, "name": "Fly.io secrets set"},
     "supabase_schema_created":   {"phase": 1, "name": "Supabase schema created"},
+    "dockerfile_created":        {"phase": 1, "name": "Dockerfile for Fly.io containerization"},
+    "fly_toml_created":          {"phase": 1, "name": "fly.toml deployment config"},
+    "reference_ads_dataset":     {"phase": 1, "name": "Reference ads dataset (varsity_tutors.json)"},
 
     # Phase 2 — Agent Pipeline
     "deps_installed":            {"phase": 2, "name": "Install Python dependencies"},
@@ -43,6 +46,7 @@ STEPS = {
     "langgraph_wired":           {"phase": 2, "name": "Wire LangGraph graph (researcher→writer→evaluator→fixer)"},
     "max_iterations_guard":      {"phase": 2, "name": "Add max_iterations=3 hard cap guard"},
     "langfuse_added":            {"phase": 2, "name": "Add Langfuse observability + cost tracking"},
+    "progress_tracker_built":    {"phase": 2, "name": "Build progress_tracker.py for milestone tracking"},
 
     # Phase 3 — Backend API
     "api_post_campaigns":        {"phase": 3, "name": "POST /campaigns — create brief, kick off agent graph"},
@@ -50,6 +54,10 @@ STEPS = {
     "api_get_ads":               {"phase": 3, "name": "GET /ads — paginated ad library with filters"},
     "api_get_ad":                {"phase": 3, "name": "GET /ads/{id} — single ad + full eval breakdown"},
     "api_get_trends":            {"phase": 3, "name": "GET /analytics/trends — quality trend data"},
+    "api_get_campaigns_list":    {"phase": 3, "name": "GET /campaigns — list all campaigns with ad counts"},
+    "api_post_rate":             {"phase": 3, "name": "POST /ads/{id}/rate — human rating submission"},
+    "api_confusion_matrix":      {"phase": 3, "name": "GET /analytics/confusion-matrix — AI vs human agreement"},
+    "api_health":                {"phase": 3, "name": "GET /health — service status endpoint"},
     "api_post_regenerate":       {"phase": 3, "name": "POST /ads/{id}/regenerate — human-in-loop trigger"},
     "pydantic_validation":       {"phase": 3, "name": "Pydantic validation on all LLM outputs"},
     "rate_limiting":             {"phase": 3, "name": "Rate limiting per campaign (cost protection)"},
@@ -60,6 +68,7 @@ STEPS = {
     "three_cycles":              {"phase": 4, "name": "Complete 3+ iteration cycles with measurable improvement"},
     "cost_tracking":             {"phase": 4, "name": "Track cost-per-ad via Langfuse"},
     "eval_export":               {"phase": 4, "name": "Export evaluation report (JSON/CSV)"},
+    "scale_run_script":          {"phase": 4, "name": "Build scale_run.py batch generation script"},
 
     # Phase 5 — Frontend UI
     "shadcn_installed":          {"phase": 5, "name": "Install shadcn/ui + Recharts"},
@@ -68,11 +77,17 @@ STEPS = {
     "radar_charts":              {"phase": 5, "name": "Radar charts — 5-dimension score per ad"},
     "trend_analytics":           {"phase": 5, "name": "Trend Analytics — quality improvement line charts"},
     "cost_display":              {"phase": 5, "name": "Cost-per-ad tracking display"},
+    "survey_page":               {"phase": 5, "name": "Survey page — human rating collection UI"},
+    "insights_page":             {"phase": 5, "name": "Insights page — confusion matrix + precision/recall"},
+    "campaign_detail_page":      {"phase": 5, "name": "Campaign detail page — per-campaign ad view"},
+    "nav_bar":                   {"phase": 5, "name": "Navigation bar with route links"},
+    "dark_light_theme":          {"phase": 5, "name": "Dark/light theme toggle with localStorage"},
     "frontend_connected":        {"phase": 5, "name": "Connect frontend to FastAPI backend"},
     "vercel_env_vars":           {"phase": 5, "name": "Add env vars to Vercel dashboard"},
 
     # Phase 6 — Documentation
     "decision_log":              {"phase": 6, "name": "Decision log — written as you go"},
+    "live_roadmap":              {"phase": 6, "name": "Live roadmap (roadmap.html + progress.json)"},
     "limitations_doc":           {"phase": 6, "name": "Limitations doc"},
     "readme":                    {"phase": 6, "name": "README — one-command setup + usage"},
     "tests":                     {"phase": 6, "name": "10+ unit/integration tests"},
@@ -85,7 +100,8 @@ STEPS = {
 BOOTSTRAP_COMPLETE = [
     "repo_created", "frontend_scaffolded", "frontend_deployed",
     "backend_scaffolded", "backend_deployed", "supabase_created",
-    "fly_secrets_set", "supabase_schema_created"
+    "fly_secrets_set", "supabase_schema_created",
+    "dockerfile_created", "fly_toml_created", "reference_ads_dataset"
 ]
 
 
