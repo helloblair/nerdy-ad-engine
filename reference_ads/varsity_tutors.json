@@ -1,0 +1,70 @@
+{
+  "source": "Varsity Tutors — provided directly by Nerdy (highest performing static ads)",
+  "documented_date": "2026-03-09",
+  "ads": [
+    {
+      "id": "vt_real_001",
+      "type": "text_only",
+      "format": "static_image",
+      "primary_text": "May 2nd SAT. 8 weeks away. 2 sessions a week. 16 sessions total. That is about 200+ points.",
+      "headline": "Start This Week.",
+      "cta_button": "Book a Free Session",
+      "audience": "parents of high school students with upcoming SAT date",
+      "hook_type": "math_as_urgency",
+      "quality_score": 9.0,
+      "notes": "Zero adjectives. Pure specificity. Breaks the path to improvement into concrete countable steps — makes 200 points feel achievable not aspirational. Date-specific urgency. Most minimal ad in the set.",
+      "brand_voice_patterns": [
+        "specific numbers only",
+        "no adjectives",
+        "math creates emotional urgency",
+        "date anchoring",
+        "short punchy sentences"
+      ]
+    },
+    {
+      "id": "vt_real_002",
+      "type": "before_after",
+      "format": "static_image",
+      "primary_text": "SAT Tutoring To Help Your Child Get Their SAT Score Up",
+      "headline": "SAT Tutoring To Help Your Child Get Their SAT Score Up",
+      "cta_button": "Book a Free Session",
+      "audience": "parents of high school students preparing for SAT",
+      "hook_type": "visual_proof_before_after",
+      "quality_score": 8.5,
+      "notes": "Visual does the heavy lifting — actual SAT score report showing 1170 to 1410 improvement. Headline is simple because the image already proves the outcome. Student holding both reports = relatable social proof.",
+      "brand_voice_patterns": [
+        "visual proof over claims",
+        "specific score numbers",
+        "before/after framing",
+        "student social proof"
+      ]
+    },
+    {
+      "id": "vt_real_003",
+      "type": "tension_reframe",
+      "format": "static_image",
+      "primary_text": "3.8 GPA But 1180 SAT?",
+      "headline": "3.8 GPA But 1180 SAT?",
+      "cta_button": "Book a Free Session",
+      "audience": "parents of high-achieving students with disappointing SAT scores",
+      "hook_type": "tension_reframe",
+      "quality_score": 9.5,
+      "notes": "Highest performing creative pattern. Creates instant tension between two real numbers the parent already knows. Implies 'your child is smart, the SAT is the problem' without saying it. Split panel visual shows confident student vs stressed student — before/after without time. Specific GPA and SAT score make it feel like they're talking directly to this parent.",
+      "brand_voice_patterns": [
+        "tension between two known numbers",
+        "reframe: child is smart, test is the problem",
+        "specific GPA + SAT score",
+        "zero corporate language",
+        "question as hook"
+      ]
+    }
+  ],
+  "key_patterns_for_writer_agent": [
+    "Use MATH AS URGENCY: break improvement into countable steps (8 weeks, 16 sessions, 200 points)",
+    "TENSION REFRAME: create conflict between two numbers the parent already knows (3.8 GPA vs 1180 SAT)",
+    "SPECIFIC SCORES ONLY: never say 'improved significantly', always say '1170 to 1410'",
+    "ZERO ADJECTIVES when possible: 'May 2nd SAT. 8 weeks away.' beats 'Your SAT is coming up soon'",
+    "THE CHILD IS NOT THE PROBLEM: always reframe — the test, the teaching style, the approach is the problem",
+    "DATE ANCHORING: specific dates create urgency that vague language cannot"
+  ]
+}
