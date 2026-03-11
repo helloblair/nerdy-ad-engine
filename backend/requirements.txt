@@ -4,7 +4,9 @@ langgraph
 langchain-google-genai
 langchain-anthropic
 anthropic
+google-genai
 langfuse
 python-dotenv
 pydantic
 supabase
+pytest

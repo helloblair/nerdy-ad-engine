@@ -11,14 +11,13 @@ Graph flow:
                           score ≥ 7.0 → save to Supabase
 """
 
-import os
 import json
 from typing import TypedDict, Optional
 from dotenv import load_dotenv
 
 from langgraph.graph import StateGraph, END
-from supabase import create_client
 
+from db import get_db
 from writer_agent import WriterAgent, WriterInput, CampaignBrief, GeneratedAd
 from evaluator_agent import EvaluatorAgent, AdContent, EvaluationResult
 from fixer_agent import FixerAgent, EvalSummary, FixerOutput
@@ -48,10 +47,6 @@ writer = WriterAgent()
 evaluator = EvaluatorAgent()
 fixer = FixerAgent()
 researcher = ResearcherAgent()
-supabase = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_ANON_KEY")
-)
 
 # ─── Nodes ────────────────────────────────────────────────────────────────────
 
@@ -118,9 +113,10 @@ def fix_node(state: AdState) -> AdState:
     return {**state, "fix": fix.model_dump(), "iteration": iteration + 1, "escalated": fix.escalate}
 
 def save_node(state: AdState) -> AdState:
-    print(f"\n💾 Saving approved ad to Supabase...")
+    db = get_db()
+    print(f"\n💾 Saving approved ad...")
     try:
-        ad_result = supabase.table("ads").insert({
+        ad_result = db.insert_ad({
             "campaign_id": state["campaign_id"],
             "primary_text": state["generated_ad"]["primary_text"],
             "headline": state["generated_ad"]["headline"],
@@ -128,9 +124,9 @@ def save_node(state: AdState) -> AdState:
             "cta_button": state["generated_ad"]["cta_button"],
             "iteration_number": state["iteration"],
             "status": "approved",
-        }).execute()
-        ad_id = ad_result.data[0]["id"]
-        supabase.table("evaluations").insert({
+        })
+        ad_id = ad_result["id"]
+        db.insert_evaluation({
             "ad_id": ad_id,
             "clarity": state["evaluation"]["clarity"]["score"],
             "value_proposition": state["evaluation"]["value_proposition"]["score"],
@@ -144,17 +140,18 @@ def save_node(state: AdState) -> AdState:
             "brand_voice_rationale": state["evaluation"]["brand_voice"]["rationale"],
             "emotional_resonance_rationale": state["evaluation"]["emotional_resonance"]["rationale"],
             "meets_threshold": state["evaluation"]["meets_threshold"],
-        }).execute()
+        })
         print(f"✅ Saved — ad_id: {ad_id}")
         return {**state, "approved": True, "final_ad_id": ad_id}
     except Exception as e:
-        print(f"❌ Supabase save failed: {e}")
+        print(f"❌ Save failed: {e}")
         return {**state, "approved": True, "final_ad_id": None}
 
 def flag_node(state: AdState) -> AdState:
+    db = get_db()
     print(f"\n⚠️  Flagging ad for human review...")
     try:
-        ad_result = supabase.table("ads").insert({
+        ad_result = db.insert_ad({
             "campaign_id": state["campaign_id"],
             "primary_text": state["generated_ad"]["primary_text"],
             "headline": state["generated_ad"]["headline"],
@@ -162,12 +159,12 @@ def flag_node(state: AdState) -> AdState:
             "cta_button": state["generated_ad"]["cta_button"],
             "iteration_number": state["iteration"],
             "status": "flagged",
-        }).execute()
-        ad_id = ad_result.data[0]["id"]
+        })
+        ad_id = ad_result["id"]
         print(f"⚠️  Flagged — ad_id: {ad_id}")
         return {**state, "approved": False, "final_ad_id": ad_id}
     except Exception as e:
-        print(f"❌ Supabase flag failed: {e}")
+        print(f"❌ Flag failed: {e}")
         return {**state, "approved": False, "final_ad_id": None}
 
 # ─── Routing ──────────────────────────────────────────────────────────────────
@@ -232,16 +229,17 @@ if __name__ == "__main__":
     print("🧪 PIPELINE SMOKE TEST")
     print("Running full generate → evaluate → fix → save loop...\n")
 
+    db = get_db()
     try:
-        campaign = supabase.table("campaigns").insert({
+        campaign = db.insert_campaign({
             "name": "Pipeline Smoke Test",
             "audience": "parents of high school juniors preparing for SAT",
             "product": "1-on-1 SAT tutoring",
             "goal": "conversion",
             "tone": "urgent, empathetic, outcome-focused",
             "status": "running",
-        }).execute()
-        campaign_id = campaign.data[0]["id"]
+        })
+        campaign_id = campaign["id"]
         print(f"✅ Created test campaign: {campaign_id}\n")
     except Exception as e:
         print(f"❌ Failed to create campaign: {e}")
@@ -268,8 +266,8 @@ if __name__ == "__main__":
     print(f"  Score history: {[e['aggregate_score'] for e in final_state['all_evaluations']]}")
     print("="*60)
 
-    supabase.table("campaigns").update({"status": "completed"}).eq("id", campaign_id).execute()
-    assert final_state["final_ad_id"] is not None, "No ad ID — Supabase save failed"
+    db.update_campaign_status(campaign_id, "completed")
+    assert final_state["final_ad_id"] is not None, "No ad ID — save failed"
 
     mark_complete("langgraph_wired")
     mark_complete("max_iterations_guard")

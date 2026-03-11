@@ -4,14 +4,12 @@ scale_run.py
 Fires the pipeline across 5 audience segments to populate Supabase
 with 50+ ads for the frontend and confusion matrix survey.
 """
-import os
-from supabase import create_client
 from dotenv import load_dotenv
 from pipeline import run_pipeline
 from writer_agent import CampaignBrief
+from db import get_db
 
 load_dotenv()
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_ANON_KEY"))
 
 CAMPAIGNS = [
     {
@@ -70,6 +68,7 @@ def run_scale():
     total_ads = sum(c["num_ads"] for c in CAMPAIGNS)
     print(f"🚀 SCALE RUN — {len(CAMPAIGNS)} campaigns, {total_ads} ads total\n")
 
+    db = get_db()
     results = []
     for i, cfg in enumerate(CAMPAIGNS):
         print(f"\n{'='*60}")
@@ -77,15 +76,15 @@ def run_scale():
         print(f"{'='*60}")
 
         try:
-            campaign = supabase.table("campaigns").insert({
+            campaign = db.insert_campaign({
                 "name": cfg["name"],
                 "audience": cfg["audience"],
                 "product": cfg["product"],
                 "goal": cfg["goal"],
                 "tone": cfg["tone"],
                 "status": "running",
-            }).execute()
-            campaign_id = campaign.data[0]["id"]
+            })
+            campaign_id = campaign["id"]
             print(f"✅ Campaign created: {campaign_id}")
 
             brief = CampaignBrief(
@@ -104,9 +103,7 @@ def run_scale():
                 if state["approved"]:
                     approved += 1
 
-            supabase.table("campaigns").update(
-                {"status": "completed"}
-            ).eq("id", campaign_id).execute()
+            db.update_campaign_status(campaign_id, "completed")
 
             results.append({
                 "campaign": cfg["name"],
@@ -133,5 +130,5 @@ def run_scale():
 if __name__ == "__main__":
     from progress_tracker import mark_complete
     run_scale()
-    mark_complete("scale_run_50_ads")
+    mark_complete("fifty_ads")
 

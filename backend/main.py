@@ -1,20 +1,20 @@
-import os
 from typing import Optional
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from supabase import create_client
 from dotenv import load_dotenv
 from pipeline import run_pipeline
 from writer_agent import CampaignBrief
+from db import get_db
 
 load_dotenv()
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_ANON_KEY"))
 
 @asynccontextmanager
 async def lifespan(app):
-    print("🚀 Nerdy Ad Engine API starting up...")
+    db = get_db()
+    backend_type = type(db).__name__
+    print(f"🚀 Nerdy Ad Engine API starting up... (db: {backend_type})")
     yield
 
 app = FastAPI(title="Nerdy Autonomous Ad Engine", version="1.0.0", lifespan=lifespan)
@@ -31,16 +31,17 @@ class CreateCampaignRequest(BaseModel):
     num_ads: Optional[int] = 1
 
 def run_campaign_pipeline(campaign_id: str, brief: CampaignBrief, num_ads: int):
+    db = get_db()
     try:
-        supabase.table("campaigns").update({"status": "running"}).eq("id", campaign_id).execute()
+        db.update_campaign_status(campaign_id, "running")
         for i in range(num_ads):
             print(f"🔄 Generating ad {i+1}/{num_ads} for campaign {campaign_id}")
             run_pipeline(campaign_id, brief)
-        supabase.table("campaigns").update({"status": "completed"}).eq("id", campaign_id).execute()
+        db.update_campaign_status(campaign_id, "completed")
         print(f"✅ Campaign {campaign_id} completed")
     except Exception as e:
         print(f"❌ Campaign {campaign_id} failed: {e}")
-        supabase.table("campaigns").update({"status": "failed"}).eq("id", campaign_id).execute()
+        db.update_campaign_status(campaign_id, "failed")
 
 @app.get("/health")
 def health():
@@ -48,12 +49,13 @@ def health():
 
 @app.post("/campaigns", status_code=202)
 def create_campaign(req: CreateCampaignRequest, background_tasks: BackgroundTasks):
+    db = get_db()
     try:
-        result = supabase.table("campaigns").insert({
+        result = db.insert_campaign({
             "name": req.name, "audience": req.audience, "product": req.product,
             "goal": req.goal, "tone": req.tone, "status": "pending",
-        }).execute()
-        campaign_id = result.data[0]["id"]
+        })
+        campaign_id = result["id"]
         brief = CampaignBrief(audience=req.audience, product=req.product, goal=req.goal,
                               tone=req.tone, key_benefit=req.key_benefit, proof_point=req.proof_point)
         background_tasks.add_task(run_campaign_pipeline, campaign_id, brief, req.num_ads)
@@ -64,28 +66,30 @@ def create_campaign(req: CreateCampaignRequest, background_tasks: BackgroundTask
 
 @app.get("/campaigns")
 def list_campaigns():
+    db = get_db()
     try:
-        campaigns = supabase.table("campaigns").select("*").order("created_at", desc=True).execute()
+        campaigns = db.list_campaigns()
         results = []
-        for c in campaigns.data:
-            ad_count = supabase.table("ads").select("id", count="exact").eq("campaign_id", c["id"]).execute()
-            results.append({**c, "ad_count": ad_count.count or 0})
+        for c in campaigns:
+            ad_count = db.count_ads_for_campaign(c["id"])
+            results.append({**c, "ad_count": ad_count})
         return {"campaigns": results, "total": len(results)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/campaigns/{campaign_id}")
 def get_campaign(campaign_id: str):
+    db = get_db()
     try:
-        campaign = supabase.table("campaigns").select("*").eq("id", campaign_id).execute()
-        if not campaign.data:
+        campaign = db.get_campaign(campaign_id)
+        if not campaign:
             raise HTTPException(status_code=404, detail="Campaign not found")
-        ads = supabase.table("ads").select("*").eq("campaign_id", campaign_id).order("created_at").execute()
+        ads = db.list_ads_for_campaign(campaign_id)
         ads_with_evals = []
-        for ad in ads.data:
-            ev = supabase.table("evaluations").select("*").eq("ad_id", ad["id"]).execute()
-            ads_with_evals.append({**ad, "evaluation": ev.data[0] if ev.data else None})
-        return {"campaign": campaign.data[0], "ads": ads_with_evals, "ad_count": len(ads_with_evals)}
+        for ad in ads:
+            ev = db.get_evaluation_for_ad(ad["id"])
+            ads_with_evals.append({**ad, "evaluation": ev})
+        return {"campaign": campaign, "ads": ads_with_evals, "ad_count": len(ads_with_evals)}
     except HTTPException:
         raise
     except Exception as e:
@@ -93,12 +97,13 @@ def get_campaign(campaign_id: str):
 
 @app.get("/ads/{ad_id}")
 def get_ad(ad_id: str):
+    db = get_db()
     try:
-        ad = supabase.table("ads").select("*").eq("id", ad_id).execute()
-        if not ad.data:
+        ad = db.get_ad(ad_id)
+        if not ad:
             raise HTTPException(status_code=404, detail="Ad not found")
-        ev = supabase.table("evaluations").select("*").eq("ad_id", ad_id).execute()
-        return {"ad": ad.data[0], "evaluation": ev.data[0] if ev.data else None}
+        ev = db.get_evaluation_for_ad(ad_id)
+        return {"ad": ad, "evaluation": ev}
     except HTTPException:
         raise
     except Exception as e:
@@ -106,13 +111,14 @@ def get_ad(ad_id: str):
 
 @app.get("/analytics/trends")
 def get_trends():
+    db = get_db()
     try:
-        evaluations = supabase.table("evaluations").select("*, ads(campaign_id, headline, iteration_number, status)").execute()
-        if not evaluations.data:
+        evaluations = db.get_evaluations_with_ads()
+        if not evaluations:
             return {"trends": [], "summary": {}}
         by_campaign = {}
         all_scores = []
-        for ev in evaluations.data:
+        for ev in evaluations:
             ad = ev.get("ads", {})
             campaign_id = ad.get("campaign_id") if ad else None
             if not campaign_id:
@@ -144,14 +150,15 @@ def get_trends():
 
 @app.post("/ads/{ad_id}/rate")
 def rate_ad(ad_id: str, rating: dict):
+    db = get_db()
     try:
         r = rating.get("rating")
         if r not in ["good", "bad", "unsure"]:
             raise HTTPException(status_code=400, detail="Rating must be good, bad, or unsure")
-        ad = supabase.table("ads").select("id").eq("id", ad_id).execute()
-        if not ad.data:
+        ad = db.get_ad(ad_id)
+        if not ad:
             raise HTTPException(status_code=404, detail="Ad not found")
-        supabase.table("human_ratings").insert({"ad_id": ad_id, "rating": r}).execute()
+        db.insert_human_rating({"ad_id": ad_id, "rating": r})
         return {"success": True, "ad_id": ad_id, "rating": r}
     except HTTPException:
         raise
@@ -160,12 +167,13 @@ def rate_ad(ad_id: str, rating: dict):
 
 @app.get("/analytics/confusion-matrix")
 def get_confusion_matrix():
+    db = get_db()
     try:
-        ratings = supabase.table("human_ratings").select("*, ads(status)").execute()
-        if not ratings.data:
+        ratings = db.get_ratings_with_ads()
+        if not ratings:
             return {"matrix": {}, "metrics": {}, "total_ratings": 0}
         tp = fp = tn = fn = 0
-        for r in ratings.data:
+        for r in ratings:
             ad = r.get("ads", {})
             human_good = r["rating"] == "good"
             ai_approved = ad.get("status") == "approved"
