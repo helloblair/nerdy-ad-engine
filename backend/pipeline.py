@@ -96,10 +96,48 @@ def evaluate_node(state: AdState) -> AdState:
     })
     return {**state, "evaluation": result.model_dump(), "all_evaluations": all_evals}
 
+def _detect_dimension_regression(state: AdState) -> str | None:
+    """Check if the weakest dimension failed to improve after the last fix attempt.
+
+    Compares the current evaluation's weakest dimension score against the
+    same dimension in the previous evaluation.  Returns an adaptation note
+    when the score did not improve, or None when it did.
+    """
+    all_evals = state.get("all_evaluations", [])
+    if len(all_evals) < 2:
+        return None
+
+    current = all_evals[-1]
+    previous = all_evals[-2]
+    dimension = current.get("weakest_dimension", "")
+
+    # Map evaluator dimension names to all_evaluations keys
+    dim_key = dimension if dimension != "cta_strength" else "cta_strength"
+    current_score = current.get(dim_key, 0)
+    previous_score = previous.get(dim_key, 0)
+
+    if current_score <= previous_score:
+        print(
+            f"⚠️  Self-heal attempt {len(all_evals) - 1} did not improve "
+            f"{dimension} — trying different strategy"
+        )
+        return (
+            f"Previous fix attempt did not improve {dimension} "
+            f"(was {previous_score:.1f}, now {current_score:.1f}). "
+            f"Try a completely different approach."
+        )
+    return None
+
 def fix_node(state: AdState) -> AdState:
     iteration = state["iteration"]
     print(f"\n🔧 FixerAgent — iteration {iteration}")
     eval_data = state["evaluation"]
+
+    improvement_suggestion = eval_data["improvement_suggestion"]
+    adaptation_note = _detect_dimension_regression(state)
+    if adaptation_note:
+        improvement_suggestion = f"{adaptation_note} {improvement_suggestion}"
+
     eval_summary = EvalSummary(
         clarity=eval_data["clarity"]["score"],
         value_proposition=eval_data["value_proposition"]["score"],
@@ -108,7 +146,7 @@ def fix_node(state: AdState) -> AdState:
         emotional_resonance=eval_data["emotional_resonance"]["score"],
         aggregate_score=eval_data["aggregate_score"],
         weakest_dimension=eval_data["weakest_dimension"],
-        improvement_suggestion=eval_data["improvement_suggestion"],
+        improvement_suggestion=improvement_suggestion,
         iteration=iteration,
     )
     fix = fixer.generate_fix(eval_summary)
