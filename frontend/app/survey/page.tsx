@@ -29,30 +29,31 @@ export default function Survey() {
     if (current + 1 >= ads.length) setDone(true);
     else setCurrent(prev => prev + 1);
   };
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><span className="mono" style={{ color: 'var(--accent)' }}>LOADING ADS...</span></div>;
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><span className="mono rainbow-text" style={{ fontWeight: 600 }}>LOADING ADS...</span></div>;
   if (done) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem', textAlign: 'center' }}>
       <div style={{ fontSize: '3rem' }}>🎉</div>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>Thanks for rating!</h2>
+      <h2 className="rainbow-text" style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>Thanks for rating!</h2>
       <p style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>You rated {Object.keys(ratings).length} ads. Your responses build our confusion matrix.</p>
-      <a href="/insights" style={{ marginTop: '8px', color: 'var(--accent2)', fontSize: '0.875rem' }}>View confusion matrix →</a>
+      <a href="/insights" style={{ marginTop: '8px', color: 'var(--accent)', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none' }}>View confusion matrix →</a>
     </div>
   );
   if (ads.length === 0) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><p style={{ color: 'var(--muted)' }}>No ads to rate yet — run the scale script first.</p></div>;
   const ad = ads[current];
+  const progress = (current / ads.length) * 100;
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 600, margin: '0 0 4px' }}>Ad Rating Survey</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 600, margin: '0 0 4px' }}><span className="rainbow-text">Ad Rating</span> Survey</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.875rem', margin: 0 }}>Would this ad make you click? Takes ~3 minutes.</p>
       </div>
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Ad {current + 1} of {ads.length}</span>
-          <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>{Math.round((current / ads.length) * 100)}%</span>
+          <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{Math.round(progress)}%</span>
         </div>
-        <div style={{ height: '4px', background: 'var(--border)', borderRadius: '2px' }}>
-          <div style={{ width: `${(current / ads.length) * 100}%`, height: '100%', background: 'var(--accent)', borderRadius: '2px', transition: 'width 0.3s ease' }} />
+        <div style={{ height: '6px', background: 'var(--surface2)', borderRadius: '3px', overflow: 'hidden' }}>
+          <div className="progress-rainbow" style={{ width: `${progress}%`, transition: 'width 0.3s ease' }} />
         </div>
       </div>
       <div className="card" style={{ marginBottom: '1.5rem', padding: '2rem' }}>
@@ -65,17 +66,19 @@ export default function Survey() {
           <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.7, margin: '4px 0 0' }}>{ad.primary_text}</p>
         </div>
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-          <span style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', padding: '6px 16px', fontSize: '0.875rem', color: 'var(--accent2)', display: 'inline-block' }}>{ad.cta_button}</span>
+          <span style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '6px 16px', fontSize: '0.875rem', color: 'var(--accent)', fontWeight: 500, display: 'inline-block' }}>{ad.cta_button}</span>
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
         {[
-          { rating: 'good', label: '👍 Yes', color: 'var(--accent)', bg: '#00e5a015', border: '#00e5a040' },
-          { rating: 'unsure', label: '🤷 Maybe', color: 'var(--warn)', bg: '#f59e0b15', border: '#f59e0b40' },
-          { rating: 'bad', label: '👎 No', color: 'var(--danger)', bg: '#ef444415', border: '#ef444440' },
-        ].map(({ rating, label, color, bg, border }) => (
+          { rating: 'good', label: '👍 Yes', bgVar: 'var(--green-bg)', borderVar: 'var(--green-border)', textVar: 'var(--green-text)' },
+          { rating: 'unsure', label: '🤷 Maybe', bgVar: 'var(--amber-bg)', borderVar: 'var(--amber-border)', textVar: 'var(--amber-text)' },
+          { rating: 'bad', label: '👎 No', bgVar: 'var(--red-bg)', borderVar: 'var(--red-border)', textVar: 'var(--red-text)' },
+        ].map(({ rating, label, bgVar, borderVar, textVar }) => (
           <button key={rating} onClick={() => handleRate(rating)} disabled={submitting}
-            style={{ background: bg, border: `1px solid ${border}`, borderRadius: '10px', padding: '1rem', cursor: submitting ? 'wait' : 'pointer', color, fontSize: '1rem', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', opacity: submitting ? 0.6 : 1 }}>
+            style={{ background: bgVar, border: `2px solid ${borderVar}`, borderRadius: '12px', padding: '1rem', cursor: submitting ? 'wait' : 'pointer', color: textVar, fontSize: '1rem', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', opacity: submitting ? 0.6 : 1, transition: 'transform 0.15s, box-shadow 0.15s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 4px 12px rgba(168,85,247,0.15)`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
             {label}
           </button>
         ))}
