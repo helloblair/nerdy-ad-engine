@@ -71,7 +71,6 @@ STEPS = {
     "scale_run_script":          {"phase": 4, "name": "Build scale_run.py batch generation script"},
 
     # Phase 5 — Frontend UI
-    "shadcn_installed":          {"phase": 5, "name": "Install shadcn/ui + Recharts"},
     "campaign_dashboard":        {"phase": 5, "name": "Campaign Dashboard — control room"},
     "ad_library_ui":             {"phase": 5, "name": "Ad Library — filterable grid, Facebook ad card mockup"},
     "radar_charts":              {"phase": 5, "name": "Radar charts — 5-dimension score per ad"},
