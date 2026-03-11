@@ -79,3 +79,42 @@ SUPABASE_ANON_KEY=your-anon-key
 ### Architecture
 
 See `docs/` for decision log and architecture notes.
+
+## Deployment
+
+### Environment Variables
+
+**Local development (`.env` file in `backend/`):**
+
+| Variable | Description | Required |
+|---|---|---|
+| ANTHROPIC_API_KEY | Claude API key for evaluator + fixer agents | Yes |
+| GOOGLE_API_KEY | Gemini API key for writer agent | Yes |
+| DB_BACKEND | `sqlite` (default) or `supabase` | No |
+| SUPABASE_URL | Supabase project URL — leave unset to use SQLite | No |
+| SUPABASE_KEY | Supabase anon/service key — leave unset to use SQLite | No |
+| WRITER_SEED | Seed for reproducible generation (e.g. `42`) | No |
+| LANGFUSE_PUBLIC_KEY | Langfuse observability public key | No |
+| LANGFUSE_SECRET_KEY | Langfuse observability secret key | No |
+
+**Production (Fly.io secrets):**
+
+All of the above, plus `SUPABASE_URL` and `SUPABASE_KEY` must be set.
+
+```bash
+fly secrets set ANTHROPIC_API_KEY=sk-... GOOGLE_API_KEY=AI... \
+  SUPABASE_URL=https://xxx.supabase.co SUPABASE_KEY=eyJ... \
+  DB_BACKEND=supabase
+```
+
+**Frontend (Vercel environment variables):**
+
+| Variable | Value |
+|---|---|
+| NEXT_PUBLIC_API_URL | `https://nerdy-ad-engine-api.fly.dev` |
+
+### Live Demo
+
+- **Frontend:** https://nerdy-ad-engine.vercel.app
+- **API Health:** https://nerdy-ad-engine-api.fly.dev/health
+- **API Status Page:** https://nerdy-ad-engine.vercel.app/api-status
