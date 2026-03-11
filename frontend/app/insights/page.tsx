@@ -15,9 +15,31 @@ export default function Insights() {
   const m = matrix?.matrix || {}; const metrics = matrix?.metrics || {}; const total = matrix?.total_ratings || 0;
   return (
     <div>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 600, margin: 0 }}><span className="rainbow-text">Insights</span></h1>
-        <p style={{ color: 'var(--muted)', marginTop: '4px', fontSize: '0.875rem' }}>Confusion matrix — AI evaluator vs human judgment</p>
+      <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 600, margin: 0 }}><span className="rainbow-text">Insights</span></h1>
+          <p style={{ color: 'var(--muted)', marginTop: '4px', fontSize: '0.875rem' }}>Confusion matrix — AI evaluator vs human judgment</p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="nav-btn"
+            onClick={async () => {
+              try {
+                const res = await fetch(`${API}/analytics/report`);
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'report.json'; a.click();
+                URL.revokeObjectURL(url);
+              } catch (e) { console.error('Export failed', e); }
+            }}
+          >Export JSON</button>
+          <button
+            className="nav-btn"
+            onClick={() => { window.open(`${API}/analytics/export/csv`, '_blank'); }}
+          >Export CSV</button>
+        </div>
       </div>
       {total === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>

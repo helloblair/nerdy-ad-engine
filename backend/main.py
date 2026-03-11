@@ -1,6 +1,9 @@
+import csv
+import io
 from typing import Optional
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -190,5 +193,90 @@ def get_confusion_matrix():
             "metrics": {"precision": precision, "recall": recall, "accuracy": accuracy},
             "total_ratings": total
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def _build_report_data() -> dict:
+    db = get_db()
+    evaluations = db.get_evaluations_with_ads()
+    campaigns = db.list_campaigns()
+    campaign_names = {c["id"]: c.get("name", "") for c in campaigns}
+
+    if not evaluations:
+        return {
+            "total_ads": 0, "avg_score": 0, "pass_rate": 0,
+            "dimension_averages": {}, "quality_trajectory": [], "per_ad": [],
+        }
+
+    dims = ["clarity", "value_proposition", "cta_score", "brand_voice", "emotional_resonance"]
+    all_scores = []
+    dim_totals: dict[str, list[float]] = {d: [] for d in dims}
+    by_iteration: dict[int, list[float]] = {}
+    per_ad = []
+
+    for ev in evaluations:
+        ad = ev.get("ads", {})
+        if not ad:
+            continue
+        score = ev.get("aggregate_score", 0)
+        all_scores.append(score)
+        iteration = ad.get("iteration_number", 1)
+        by_iteration.setdefault(iteration, []).append(score)
+        for d in dims:
+            dim_totals[d].append(ev.get(d, 0))
+        per_ad.append({
+            "ad_id": ev.get("ad_id", ""),
+            "headline": ad.get("headline", ""),
+            "campaign_name": campaign_names.get(ad.get("campaign_id", ""), ""),
+            "iteration_number": iteration,
+            "clarity": ev.get("clarity", 0),
+            "value_proposition": ev.get("value_proposition", 0),
+            "cta_score": ev.get("cta_score", 0),
+            "brand_voice": ev.get("brand_voice", 0),
+            "emotional_resonance": ev.get("emotional_resonance", 0),
+            "aggregate_score": score,
+            "passed_threshold": score >= 7.0,
+        })
+
+    avg = lambda lst: round(sum(lst) / len(lst), 2) if lst else 0
+    quality_trajectory = sorted(
+        [{"cycle": k, "avg_score": avg(v)} for k, v in by_iteration.items()],
+        key=lambda x: x["cycle"],
+    )
+
+    return {
+        "total_ads": len(all_scores),
+        "avg_score": avg(all_scores),
+        "pass_rate": round(sum(1 for s in all_scores if s >= 7.0) / len(all_scores) * 100, 1),
+        "dimension_averages": {d: avg(dim_totals[d]) for d in dims},
+        "quality_trajectory": quality_trajectory,
+        "per_ad": per_ad,
+    }
+
+@app.get("/analytics/report")
+def get_report():
+    try:
+        return _build_report_data()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analytics/export/csv")
+def export_csv():
+    try:
+        data = _build_report_data()
+        output = io.StringIO()
+        cols = ["ad_id", "headline", "campaign_name", "iteration_number",
+                "clarity", "value_proposition", "cta_score", "brand_voice",
+                "emotional_resonance", "aggregate_score", "passed_threshold"]
+        writer = csv.DictWriter(output, fieldnames=cols)
+        writer.writeheader()
+        for row in data["per_ad"]:
+            writer.writerow({c: row[c] for c in cols})
+        output.seek(0)
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="nerdy_ad_report.csv"'},
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
