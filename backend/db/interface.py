@@ -46,6 +46,11 @@ class DatabaseInterface(ABC):
         ...
 
     @abstractmethod
+    def count_all_ads(self) -> int:
+        """Return the total count of all ads across all campaigns."""
+        ...
+
+    @abstractmethod
     def list_ads_for_campaign(self, campaign_id: str) -> list[dict]:
         """Return all ads for a campaign, ordered by created_at ASC."""
         ...
@@ -53,6 +58,16 @@ class DatabaseInterface(ABC):
     @abstractmethod
     def get_ad(self, ad_id: str) -> Optional[dict]:
         """Return a single ad by id, or None."""
+        ...
+
+    @abstractmethod
+    def update_ad(self, ad_id: str, updates: dict) -> dict:
+        """Update an ad row by id. Returns the updated row dict."""
+        ...
+
+    @abstractmethod
+    def list_all_ads(self) -> list[dict]:
+        """Return all ads across all campaigns."""
         ...
 
     # ── Evaluations ──────────────────────────────────────────────────────────

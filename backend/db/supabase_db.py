@@ -50,13 +50,25 @@ class SupabaseDatabase(DatabaseInterface):
         result = self.client.table("ads").select("id", count="exact").eq("campaign_id", campaign_id).execute()
         return result.count or 0
 
+    def count_all_ads(self) -> int:
+        result = self.client.table("ads").select("id", count="exact").execute()
+        return result.count or 0
+
     def list_ads_for_campaign(self, campaign_id: str) -> list[dict]:
         result = self.client.table("ads").select("*").eq("campaign_id", campaign_id).order("created_at").execute()
+        return result.data
+
+    def list_all_ads(self) -> list[dict]:
+        result = self.client.table("ads").select("*").order("created_at", desc=True).execute()
         return result.data
 
     def get_ad(self, ad_id: str) -> Optional[dict]:
         result = self.client.table("ads").select("*").eq("id", ad_id).execute()
         return result.data[0] if result.data else None
+
+    def update_ad(self, ad_id: str, updates: dict) -> dict:
+        result = self.client.table("ads").update(updates).eq("id", ad_id).execute()
+        return result.data[0] if result.data else {}
 
     # ── Evaluations ──────────────────────────────────────────────────────────
 

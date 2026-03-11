@@ -13,6 +13,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Force SQLite in tests — no live Supabase credentials needed
+os.environ.pop("SUPABASE_URL", None)
+os.environ.pop("SUPABASE_KEY", None)
+os.environ.pop("SUPABASE_ANON_KEY", None)
+os.environ["DB_BACKEND"] = "sqlite"
+
 # Ensure backend/ is on sys.path so imports work
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
