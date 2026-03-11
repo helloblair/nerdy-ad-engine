@@ -38,7 +38,7 @@ function pentagonPoints(cx: number, cy: number, radius: number, count: number): 
 
 export default function RadarChart({ scores }: { scores: RadarScores }) {
   const gradId = `radar-fill-${Math.random().toString(36).slice(2, 8)}`;
-  const viewSize = 200;
+  const viewSize = 240;
   const cx = viewSize / 2;
   const cy = viewSize / 2;
   const maxR = 70;
@@ -95,7 +95,7 @@ export default function RadarChart({ scores }: { scores: RadarScores }) {
 
       {/* Labels */}
       {DIMENSIONS.map((dim, i) => {
-        const { x, y } = polarToXY(cx, cy, maxR + 22, i, count);
+        const { x, y } = polarToXY(cx, cy, maxR + 28, i, count);
         const val = scoreValues[i];
         return (
           <text

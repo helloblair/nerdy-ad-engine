@@ -75,10 +75,8 @@ export default function Survey() {
           { rating: 'unsure', label: '🤷 Maybe', bgVar: 'var(--amber-bg)', borderVar: 'var(--amber-border)', textVar: 'var(--amber-text)' },
           { rating: 'bad', label: '👎 No', bgVar: 'var(--red-bg)', borderVar: 'var(--red-border)', textVar: 'var(--red-text)' },
         ].map(({ rating, label, bgVar, borderVar, textVar }) => (
-          <button key={rating} onClick={() => handleRate(rating)} disabled={submitting}
-            style={{ background: bgVar, border: `2px solid ${borderVar}`, borderRadius: '12px', padding: '1rem', cursor: submitting ? 'wait' : 'pointer', color: textVar, fontSize: '1rem', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', opacity: submitting ? 0.6 : 1, transition: 'transform 0.15s, box-shadow 0.15s' }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 4px 12px rgba(168,85,247,0.15)`; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
+          <button key={rating} className="rating-btn" onClick={() => handleRate(rating)} disabled={submitting}
+            style={{ background: bgVar, border: `2px solid ${borderVar}`, borderRadius: '12px', padding: '1rem', cursor: submitting ? 'wait' : 'pointer', color: textVar, fontSize: '1rem', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', opacity: submitting ? 0.6 : 1 }}>
             {label}
           </button>
         ))}
