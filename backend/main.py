@@ -196,6 +196,34 @@ def get_confusion_matrix():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/ads/{ad_id}/regenerate")
+def regenerate_ad(ad_id: str, background_tasks: BackgroundTasks):
+    db = get_db()
+    try:
+        ad = db.get_ad(ad_id)
+        if not ad:
+            raise HTTPException(status_code=404, detail="Ad not found")
+        campaign = db.get_campaign(ad["campaign_id"])
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        brief = CampaignBrief(
+            audience=campaign["audience"],
+            product=campaign["product"],
+            goal=campaign["goal"],
+            tone=campaign.get("tone"),
+        )
+        background_tasks.add_task(run_pipeline, campaign["id"], brief)
+        return {
+            "status": "regenerating",
+            "ad_id": ad_id,
+            "campaign_id": campaign["id"],
+            "message": "Pipeline re-entered. A new ad will be generated for this campaign.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 def _build_report_data() -> dict:
     db = get_db()
     evaluations = db.get_evaluations_with_ads()

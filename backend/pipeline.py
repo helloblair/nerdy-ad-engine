@@ -13,6 +13,7 @@ Graph flow:
 
 import json
 import os
+import time
 from typing import TypedDict, Optional
 from dotenv import load_dotenv
 
@@ -153,65 +154,86 @@ def fix_node(state: AdState) -> AdState:
     fixer.print_fix(fix)
     return {**state, "fix": fix.model_dump(), "iteration": iteration + 1, "escalated": fix.escalate}
 
+def _db_save_with_retry(operation, description: str, max_attempts: int = 3):
+    """Execute a DB operation with retry logic for transient failures."""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return operation()
+        except Exception as e:
+            if attempt < max_attempts:
+                print(f"⚠️  {description} attempt {attempt} failed, retrying... ({e})")
+                time.sleep(1)
+            else:
+                raise
+
 def save_node(state: AdState) -> AdState:
     db = get_db()
     print(f"\n💾 Saving approved ad...")
     try:
-        ad_result = db.insert_ad({
-            "campaign_id": state["campaign_id"],
-            "primary_text": state["generated_ad"]["primary_text"],
-            "headline": state["generated_ad"]["headline"],
-            "description": state["generated_ad"].get("description", ""),
-            "cta_button": state["generated_ad"]["cta_button"],
-            "iteration_number": state["iteration"],
-            "status": "approved",
-        })
+        ad_result = _db_save_with_retry(
+            lambda: db.insert_ad({
+                "campaign_id": state["campaign_id"],
+                "primary_text": state["generated_ad"]["primary_text"],
+                "headline": state["generated_ad"]["headline"],
+                "description": state["generated_ad"].get("description", ""),
+                "cta_button": state["generated_ad"]["cta_button"],
+                "iteration_number": state["iteration"],
+                "status": "approved",
+            }),
+            "Supabase save (ad)",
+        )
         ad_id = ad_result["id"]
-        db.insert_evaluation({
-            "ad_id": ad_id,
-            "clarity": state["evaluation"]["clarity"]["score"],
-            "value_proposition": state["evaluation"]["value_proposition"]["score"],
-            "cta_score": state["evaluation"]["cta_strength"]["score"],
-            "brand_voice": state["evaluation"]["brand_voice"]["score"],
-            "emotional_resonance": state["evaluation"]["emotional_resonance"]["score"],
-            "aggregate_score": state["evaluation"]["aggregate_score"],
-            "clarity_rationale": state["evaluation"]["clarity"]["rationale"],
-            "value_proposition_rationale": state["evaluation"]["value_proposition"]["rationale"],
-            "cta_rationale": state["evaluation"]["cta_strength"]["rationale"],
-            "brand_voice_rationale": state["evaluation"]["brand_voice"]["rationale"],
-            "emotional_resonance_rationale": state["evaluation"]["emotional_resonance"]["rationale"],
-            "clarity_confidence": state["evaluation"]["clarity"]["confidence"],
-            "value_proposition_confidence": state["evaluation"]["value_proposition"]["confidence"],
-            "cta_confidence": state["evaluation"]["cta_strength"]["confidence"],
-            "brand_voice_confidence": state["evaluation"]["brand_voice"]["confidence"],
-            "emotional_resonance_confidence": state["evaluation"]["emotional_resonance"]["confidence"],
-            "meets_threshold": state["evaluation"]["meets_threshold"],
-            "needs_human_review": state["evaluation"]["needs_human_review"],
-        })
+        _db_save_with_retry(
+            lambda: db.insert_evaluation({
+                "ad_id": ad_id,
+                "clarity": state["evaluation"]["clarity"]["score"],
+                "value_proposition": state["evaluation"]["value_proposition"]["score"],
+                "cta_score": state["evaluation"]["cta_strength"]["score"],
+                "brand_voice": state["evaluation"]["brand_voice"]["score"],
+                "emotional_resonance": state["evaluation"]["emotional_resonance"]["score"],
+                "aggregate_score": state["evaluation"]["aggregate_score"],
+                "clarity_rationale": state["evaluation"]["clarity"]["rationale"],
+                "value_proposition_rationale": state["evaluation"]["value_proposition"]["rationale"],
+                "cta_rationale": state["evaluation"]["cta_strength"]["rationale"],
+                "brand_voice_rationale": state["evaluation"]["brand_voice"]["rationale"],
+                "emotional_resonance_rationale": state["evaluation"]["emotional_resonance"]["rationale"],
+                "clarity_confidence": state["evaluation"]["clarity"]["confidence"],
+                "value_proposition_confidence": state["evaluation"]["value_proposition"]["confidence"],
+                "cta_confidence": state["evaluation"]["cta_strength"]["confidence"],
+                "brand_voice_confidence": state["evaluation"]["brand_voice"]["confidence"],
+                "emotional_resonance_confidence": state["evaluation"]["emotional_resonance"]["confidence"],
+                "meets_threshold": state["evaluation"]["meets_threshold"],
+                "needs_human_review": state["evaluation"]["needs_human_review"],
+            }),
+            "Supabase save (evaluation)",
+        )
         print(f"✅ Saved — ad_id: {ad_id}")
         return {**state, "approved": True, "final_ad_id": ad_id}
     except Exception as e:
-        print(f"❌ Save failed: {e}")
+        print(f"❌ Save failed after retries: {e}")
         return {**state, "approved": True, "final_ad_id": None}
 
 def flag_node(state: AdState) -> AdState:
     db = get_db()
     print(f"\n⚠️  Flagging ad for human review...")
     try:
-        ad_result = db.insert_ad({
-            "campaign_id": state["campaign_id"],
-            "primary_text": state["generated_ad"]["primary_text"],
-            "headline": state["generated_ad"]["headline"],
-            "description": state["generated_ad"].get("description", ""),
-            "cta_button": state["generated_ad"]["cta_button"],
-            "iteration_number": state["iteration"],
-            "status": "flagged",
-        })
+        ad_result = _db_save_with_retry(
+            lambda: db.insert_ad({
+                "campaign_id": state["campaign_id"],
+                "primary_text": state["generated_ad"]["primary_text"],
+                "headline": state["generated_ad"]["headline"],
+                "description": state["generated_ad"].get("description", ""),
+                "cta_button": state["generated_ad"]["cta_button"],
+                "iteration_number": state["iteration"],
+                "status": "flagged",
+            }),
+            "Supabase save (flagged ad)",
+        )
         ad_id = ad_result["id"]
         print(f"⚠️  Flagged — ad_id: {ad_id}")
         return {**state, "approved": False, "final_ad_id": ad_id}
     except Exception as e:
-        print(f"❌ Flag failed: {e}")
+        print(f"❌ Flag failed after retries: {e}")
         return {**state, "approved": False, "final_ad_id": None}
 
 # ─── Routing ──────────────────────────────────────────────────────────────────
