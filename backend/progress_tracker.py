@@ -46,6 +46,8 @@ STEPS = {
     "langgraph_wired":           {"phase": 2, "name": "Wire LangGraph graph (researcher→writer→evaluator→fixer)"},
     "max_iterations_guard":      {"phase": 2, "name": "Add max_iterations=3 hard cap guard"},
     "langfuse_added":            {"phase": 2, "name": "Add Langfuse observability + cost tracking"},
+    "confidence_scoring":        {"phase": 2, "name": "Add confidence scoring to EvaluatorAgent"},
+    "deterministic_seeds":       {"phase": 2, "name": "Deterministic behavior with seed control"},
     "progress_tracker_built":    {"phase": 2, "name": "Build progress_tracker.py for milestone tracking"},
 
     # Phase 3 — Backend API
@@ -61,6 +63,7 @@ STEPS = {
     "api_post_regenerate":       {"phase": 3, "name": "POST /ads/{id}/regenerate — human-in-loop trigger"},
     "pydantic_validation":       {"phase": 3, "name": "Pydantic validation on all LLM outputs"},
     "rate_limiting":             {"phase": 3, "name": "Rate limiting per campaign (cost protection)"},
+    "sqlite_fallback":           {"phase": 3, "name": "SQLite fallback for zero-config local development"},
 
     # Phase 4 — Scale
     "multi_audience":            {"phase": 4, "name": "Run pipeline across 3+ audience segments"},
@@ -69,6 +72,8 @@ STEPS = {
     "cost_tracking":             {"phase": 4, "name": "Track cost-per-ad via Langfuse"},
     "eval_export":               {"phase": 4, "name": "Export evaluation report (JSON/CSV)"},
     "scale_run_script":          {"phase": 4, "name": "Build scale_run.py batch generation script"},
+    "self_healing_loop":         {"phase": 4, "name": "Self-healing feedback loop (detect quality drops, auto-fix)"},
+    "competitive_intel":         {"phase": 4, "name": "Competitive intelligence from Meta Ad Library patterns"},
 
     # Phase 5 — Frontend UI
     "campaign_dashboard":        {"phase": 5, "name": "Campaign Dashboard — control room"},
@@ -89,8 +94,10 @@ STEPS = {
     "live_roadmap":              {"phase": 6, "name": "Live roadmap (roadmap.html + progress.json)"},
     "limitations_doc":           {"phase": 6, "name": "Limitations doc"},
     "readme":                    {"phase": 6, "name": "README — one-command setup + usage"},
-    "tests":                     {"phase": 6, "name": "10+ unit/integration tests"},
+    "tests":                     {"phase": 6, "name": "25+ unit/integration tests"},
     "technical_writeup":         {"phase": 6, "name": "Technical writeup (1–2 pages)"},
+    "ai_tools_doc":              {"phase": 6, "name": "Documentation of AI tools and prompts used"},
+    "makefile_setup":            {"phase": 6, "name": "Makefile with one-command install/dev/test targets"},
     "demo_video":                {"phase": 6, "name": "Record 1–5 min demo video"},
     "repo_public":               {"phase": 6, "name": "Make repo public for submission"},
 }
