@@ -69,7 +69,7 @@ Return ONLY a raw JSON object, no markdown, no backticks:
 {"primary_text":"2-4 sentences","headline":"max 7 words","description":"one line","cta_button":"Book a Free Session","writer_notes":"brief note"}"""
         return prompt
 
-    def generate(self, input: WriterInput) -> GeneratedAd:
+    def generate(self, input: WriterInput, seed: int = None) -> GeneratedAd:
         for attempt in range(3):
             try:
                 response = self.client.models.generate_content(
@@ -79,6 +79,7 @@ Return ONLY a raw JSON object, no markdown, no backticks:
                         system_instruction=self.SYSTEM_PROMPT,
                         temperature=0.8,
                         max_output_tokens=2048,
+                        **({"seed": seed} if seed is not None else {}),
                     )
                 )
                 raw = response.text.strip()

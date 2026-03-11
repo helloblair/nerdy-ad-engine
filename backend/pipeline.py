@@ -12,6 +12,7 @@ Graph flow:
 """
 
 import json
+import os
 from typing import TypedDict, Optional
 from dotenv import load_dotenv
 
@@ -61,7 +62,9 @@ def write_node(state: AdState) -> AdState:
         research_context=state.get("research_context"),
         iteration=iteration,
     )
-    ad = writer.generate(writer_input)
+    raw_seed = os.getenv("WRITER_SEED")
+    seed = int(raw_seed) if raw_seed and raw_seed.lower() != "none" else None
+    ad = writer.generate(writer_input, seed=seed)
     writer.print_ad(ad, iteration=iteration)
     return {**state, "generated_ad": ad.model_dump(), "iteration": iteration}
 
