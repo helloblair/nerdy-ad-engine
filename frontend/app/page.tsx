@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const gradients = [
   'linear-gradient(135deg, #f97316, #ec4899)',

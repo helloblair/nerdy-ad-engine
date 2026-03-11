@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 export default function Insights() {
   const [matrix, setMatrix] = useState<any>(null);
   const [trends, setTrends] = useState<any>(null);

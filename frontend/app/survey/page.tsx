@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 export default function Survey() {
   const [ads, setAds] = useState<any[]>([]);
   const [current, setCurrent] = useState(0);
@@ -13,8 +13,8 @@ export default function Survey() {
       const allAds: any[] = [];
       for (const camp of (data.campaigns || []).slice(0, 5)) {
         const detail = await fetch(`${API}/campaigns/${camp.id}`).then(r => r.json());
-        const approved = (detail.ads || []).filter((a: any) => a.status === 'approved');
-        allAds.push(...approved.slice(0, 3));
+        const ratable = (detail.ads || []).filter((a: any) => a.status === 'approved' || a.status === 'flagged');
+        allAds.push(...ratable.slice(0, 3));
       }
       setAds(allAds.sort(() => Math.random() - 0.5).slice(0, 10));
       setLoading(false);
