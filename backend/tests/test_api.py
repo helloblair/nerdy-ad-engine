@@ -1,4 +1,4 @@
-"""Tests for FastAPI endpoints using TestClient against real Supabase."""
+"""Tests for FastAPI endpoints using TestClient."""
 
 import os
 import sys
@@ -9,15 +9,21 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from main import app, supabase
+from main import app
+from db import get_db
 
 client = TestClient(app)
 
 
 def _get_any_ad_id() -> str | None:
-    """Fetch a real ad ID from Supabase, or None if the table is empty."""
-    result = supabase.table("ads").select("id").limit(1).execute()
-    return result.data[0]["id"] if result.data else None
+    """Fetch a real ad ID from the database, or None if the table is empty."""
+    db = get_db()
+    campaigns = db.list_campaigns()
+    for c in campaigns:
+        ads = db.list_ads_for_campaign(c["id"])
+        if ads:
+            return ads[0]["id"]
+    return None
 
 
 # ── Test 1: GET /health returns 200 ────────────────────────────────────────
@@ -44,7 +50,7 @@ def test_list_campaigns_200():
 def test_rate_ad_valid():
     ad_id = _get_any_ad_id()
     if ad_id is None:
-        pytest.skip("No ads in Supabase to rate")
+        pytest.skip("No ads in database to rate")
     resp = client.post(f"/ads/{ad_id}/rate", json={"rating": "good"})
     assert resp.status_code == 200
     body = resp.json()
@@ -57,7 +63,7 @@ def test_rate_ad_valid():
 def test_rate_ad_invalid():
     ad_id = _get_any_ad_id()
     if ad_id is None:
-        pytest.skip("No ads in Supabase to rate")
+        pytest.skip("No ads in database to rate")
     resp = client.post(f"/ads/{ad_id}/rate", json={"rating": "terrible"})
     assert resp.status_code == 400
 

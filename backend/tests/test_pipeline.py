@@ -57,29 +57,29 @@ LOW_EVAL = {
 }
 
 
-def _supabase_insert_mock():
-    """Return a mock supabase client that simulates insert→execute."""
+def _mock_db():
+    """Return a mock db that simulates insert_ad and insert_evaluation."""
     mock = MagicMock()
-    mock.table.return_value.insert.return_value.execute.return_value = MagicMock(
-        data=[{"id": "test-ad-id-1234"}]
-    )
+    mock.insert_ad.return_value = {"id": "test-ad-id-1234"}
+    mock.insert_evaluation.return_value = {"id": "test-eval-id-1234"}
     return mock
 
 
 # ── Test 1: Approved ad returns aggregate_score ─────────────────────────────
 
-@patch("pipeline.supabase")
+@patch("pipeline.get_db")
 @patch("pipeline.researcher")
 @patch("pipeline.fixer")
 @patch("pipeline.evaluator")
 @patch("pipeline.writer")
 def test_pipeline_returns_aggregate_score(
-    mock_writer, mock_evaluator, mock_fixer, mock_researcher, mock_supabase,
+    mock_writer, mock_evaluator, mock_fixer, mock_researcher, mock_get_db,
     sample_brief,
 ):
     from writer_agent import GeneratedAd
     from evaluator_agent import EvaluationResult, DimensionScore
 
+    mock_get_db.return_value = _mock_db()
     mock_researcher.extract_context.return_value = MagicMock()
     mock_researcher.format_for_prompt.return_value = "test context"
     mock_writer.generate.return_value = GeneratedAd(**GOOD_AD)
@@ -98,10 +98,6 @@ def test_pipeline_returns_aggregate_score(
     mock_evaluator.evaluate.return_value = result
     mock_evaluator.print_result = MagicMock()
 
-    mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(
-        data=[{"id": "test-ad-id-1234"}]
-    )
-
     from pipeline import run_pipeline
     state = run_pipeline("test-campaign-id", sample_brief)
 
@@ -111,19 +107,20 @@ def test_pipeline_returns_aggregate_score(
 
 # ── Test 2: Low score triggers fix cycle ────────────────────────────────────
 
-@patch("pipeline.supabase")
+@patch("pipeline.get_db")
 @patch("pipeline.researcher")
 @patch("pipeline.fixer")
 @patch("pipeline.evaluator")
 @patch("pipeline.writer")
 def test_low_score_triggers_fix_cycle(
-    mock_writer, mock_evaluator, mock_fixer, mock_researcher, mock_supabase,
+    mock_writer, mock_evaluator, mock_fixer, mock_researcher, mock_get_db,
     sample_brief,
 ):
     from writer_agent import GeneratedAd
     from evaluator_agent import EvaluationResult, DimensionScore
     from fixer_agent import FixerOutput
 
+    mock_get_db.return_value = _mock_db()
     mock_researcher.extract_context.return_value = MagicMock()
     mock_researcher.format_for_prompt.return_value = "test context"
     mock_writer.generate.return_value = GeneratedAd(**GOOD_AD)
@@ -160,10 +157,6 @@ def test_low_score_triggers_fix_cycle(
         escalate=False,
     )
     mock_fixer.print_fix = MagicMock()
-
-    mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(
-        data=[{"id": "test-ad-id-5678"}]
-    )
 
     from pipeline import run_pipeline
     state = run_pipeline("test-campaign-id", sample_brief)
