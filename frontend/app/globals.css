@@ -8,18 +8,18 @@
   --surface: #ffffff;
   --surface2: #f0ecf6;
   --border: #e2dced;
-  --accent: #a855f7;
-  --accent2: #3b82f6;
+  --accent: #a855c8;
+  --accent2: #5b9be4;
   --warn: #f59e0b;
   --danger: #ef4444;
   --text: #1e1b2e;
   --muted: #7c6f9b;
 
-  /* rainbow gradient tokens */
-  --gradient-rainbow: linear-gradient(135deg, #f97316, #f59e0b, #ec4899, #a855f7, #6366f1, #3b82f6);
-  --gradient-warm: linear-gradient(135deg, #f97316, #ec4899, #a855f7);
-  --gradient-cool: linear-gradient(135deg, #a855f7, #6366f1, #3b82f6, #06b6d4);
-  --gradient-soft: linear-gradient(135deg, #fdf2f8, #ede9fe, #e0f2fe);
+  /* rainbow gradient tokens — matched to Nerdy Live+AI brand */
+  --gradient-rainbow: linear-gradient(135deg, #fbbf24, #f97316, #f06c6c, #ec4899, #c850c0, #9b6cc8, #5b9be4, #00d4cf);
+  --gradient-warm: linear-gradient(135deg, #fbbf24, #f97316, #ec4899);
+  --gradient-cool: linear-gradient(135deg, #9b6cc8, #5b9be4, #00d4cf);
+  --gradient-soft: linear-gradient(135deg, #fef3e0, #fde8f0, #ede0fe);
 
   /* badge colors (light) */
   --badge-approved-bg: #dcfce7; --badge-approved-text: #16a34a; --badge-approved-border: #bbf7d0;
@@ -43,29 +43,29 @@
 }
 
 [data-theme="dark"] {
-  --bg: #0c0a1a;
-  --surface: #16132a;
-  --surface2: #1e1a35;
-  --border: #2a2545;
+  --bg: #2c2945;
+  --surface: #363252;
+  --surface2: #312e4a;
+  --border: #4a4568;
   --text: #e8e4f0;
-  --muted: #8b82a8;
+  --muted: #9b94b8;
 
-  --badge-approved-bg: #052e16; --badge-approved-text: #4ade80; --badge-approved-border: #166534;
-  --badge-flagged-bg: #350a0a; --badge-flagged-text: #fca5a5; --badge-flagged-border: #7f1d1d;
-  --badge-pending-bg: #351c06; --badge-pending-text: #fcd34d; --badge-pending-border: #78350f;
-  --badge-running-bg: #0a1a35; --badge-running-text: #93c5fd; --badge-running-border: #1e3a5f;
-  --badge-completed-bg: #052e16; --badge-completed-text: #4ade80; --badge-completed-border: #166534;
-  --badge-awareness-bg: #1e1535; --badge-awareness-text: #c4b5fd; --badge-awareness-border: #3b2d6b;
+  --badge-approved-bg: #1a3a28; --badge-approved-text: #4ade80; --badge-approved-border: #2a5a3e;
+  --badge-flagged-bg: #3e2028; --badge-flagged-text: #fca5a5; --badge-flagged-border: #5a3040;
+  --badge-pending-bg: #3e3020; --badge-pending-text: #fcd34d; --badge-pending-border: #5a4830;
+  --badge-running-bg: #1e2e48; --badge-running-text: #93c5fd; --badge-running-border: #2e4468;
+  --badge-completed-bg: #1a3a28; --badge-completed-text: #4ade80; --badge-completed-border: #2a5a3e;
+  --badge-awareness-bg: #302848; --badge-awareness-text: #c4b5fd; --badge-awareness-border: #4a3e72;
 
-  --green-bg: #052e16; --green-text: #4ade80; --green-border: #166534;
-  --red-bg: #350a0a; --red-text: #fca5a5; --red-border: #7f1d1d;
-  --amber-bg: #351c06; --amber-text: #fcd34d; --amber-border: #78350f;
+  --green-bg: #1a3a28; --green-text: #4ade80; --green-border: #2a5a3e;
+  --red-bg: #3e2028; --red-text: #fca5a5; --red-border: #5a3040;
+  --amber-bg: #3e3020; --amber-text: #fcd34d; --amber-border: #5a4830;
 
-  --card-hover-border: #7c3aed;
-  --card-hover-shadow: rgba(168,85,247,0.15);
-  --card-hover-shadow2: rgba(168,85,247,0.08);
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.15);
-  --nav-shadow: 0 1px 8px rgba(0,0,0,0.3);
+  --card-hover-border: #8b6cc4;
+  --card-hover-shadow: rgba(180,160,216,0.15);
+  --card-hover-shadow2: rgba(180,160,216,0.08);
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.1);
+  --nav-shadow: 0 1px 8px rgba(0,0,0,0.2);
 }
 
 * { box-sizing: border-box; }
@@ -200,9 +200,9 @@ body {
   color: var(--text);
   border-color: transparent;
   box-shadow:
-    0 0 0 1px rgba(168,85,247,0.4),
-    0 0 12px rgba(168,85,247,0.15),
-    0 0 24px rgba(99,102,241,0.1);
+    0 0 0 1px rgba(180,160,216,0.4),
+    0 0 12px rgba(180,160,216,0.15),
+    0 0 24px rgba(139,138,212,0.1);
 }
 /* rainbow border glow pseudo-element */
 .nav-btn::before {

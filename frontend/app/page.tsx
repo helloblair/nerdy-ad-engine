@@ -3,18 +3,18 @@ import { useEffect, useState } from 'react';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const gradients = [
-  'linear-gradient(135deg, #f97316, #ec4899)',
-  'linear-gradient(135deg, #a855f7, #6366f1)',
-  'linear-gradient(135deg, #3b82f6, #06b6d4)',
-  'linear-gradient(135deg, #ec4899, #a855f7)',
+  'linear-gradient(135deg, #fbbf24, #f97316)',
+  'linear-gradient(135deg, #c850c0, #9b6cc8)',
+  'linear-gradient(135deg, #5b9be4, #00d4cf)',
+  'linear-gradient(135deg, #ec4899, #c850c0)',
 ];
 
 function ScoreBar({ score }: { score: number }) {
   const gradient = score >= 8
-    ? 'linear-gradient(90deg, #a855f7, #6366f1)'
+    ? 'linear-gradient(90deg, #c850c0, #9b6cc8)'
     : score >= 7
-    ? 'linear-gradient(90deg, #f59e0b, #f97316)'
-    : 'linear-gradient(90deg, #ef4444, #ec4899)';
+    ? 'linear-gradient(90deg, #fbbf24, #f97316)'
+    : 'linear-gradient(90deg, #ec4899, #c850c0)';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       <div style={{ flex: 1, height: '6px', background: 'var(--surface2)', borderRadius: '3px' }}>

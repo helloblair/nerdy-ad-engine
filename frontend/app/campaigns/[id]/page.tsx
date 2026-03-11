@@ -1,14 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import RadarChart from '../../components/RadarChart';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
   const gradient = score >= 8
-    ? ['#a855f7', '#6366f1']
+    ? ['#c850c0', '#9b6cc8']
     : score >= 7
-    ? ['#f59e0b', '#f97316']
-    : ['#ef4444', '#ec4899'];
+    ? ['#fbbf24', '#f97316']
+    : ['#ec4899', '#c850c0'];
   const id = `grad-${Math.random().toString(36).slice(2, 8)}`;
   const r = (size / 2) - 6; const circ = 2 * Math.PI * r; const dash = (score / 10) * circ;
   return (
@@ -38,7 +39,7 @@ export default function CampaignDetail() {
   if (!data) return <div style={{ color: 'var(--danger)' }}>Campaign not found</div>;
   const { campaign, ads } = data;
   const dims = ['clarity', 'value_proposition', 'cta_score', 'brand_voice', 'emotional_resonance'];
-  const dimColors = ['#f97316', '#ec4899', '#a855f7', '#6366f1', '#3b82f6'];
+  const dimColors = ['#fbbf24', '#ec4899', '#c850c0', '#9b6cc8', '#5b9be4'];
   return (
     <div>
       <div style={{ marginBottom: '2rem' }}>
@@ -68,6 +69,15 @@ export default function CampaignDetail() {
               </div>
               {ev && (
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                  <div style={{ maxWidth: 260, margin: '0 auto 1rem' }}>
+                    <RadarChart scores={{
+                      clarity: ev.clarity ?? 0,
+                      value_proposition: ev.value_proposition ?? 0,
+                      cta_score: ev.cta_score ?? 0,
+                      brand_voice: ev.brand_voice ?? 0,
+                      emotional_resonance: ev.emotional_resonance ?? 0,
+                    }} />
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
                     {dims.map((dim, idx) => {
                       const score = ev[dim];

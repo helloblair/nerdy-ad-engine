@@ -52,9 +52,9 @@ export default function Insights() {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
             {[
-              { label: 'PRECISION', value: `${(metrics.precision * 100).toFixed(1)}%`, sub: 'when AI approves, human agrees', gradient: 'linear-gradient(135deg, #a855f7, #6366f1)', color: '#7c3aed' },
-              { label: 'RECALL', value: `${(metrics.recall * 100).toFixed(1)}%`, sub: 'when human likes, AI caught it', gradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)', color: '#2563eb' },
-              { label: 'ACCURACY', value: `${(metrics.accuracy * 100).toFixed(1)}%`, sub: `from ${total} human ratings`, gradient: 'linear-gradient(135deg, #f97316, #ec4899)', color: '#ea580c' },
+              { label: 'PRECISION', value: `${(metrics.precision * 100).toFixed(1)}%`, sub: 'when AI approves, human agrees', gradient: 'linear-gradient(135deg, #c850c0, #9b6cc8)', color: '#c850c0' },
+              { label: 'RECALL', value: `${(metrics.recall * 100).toFixed(1)}%`, sub: 'when human likes, AI caught it', gradient: 'linear-gradient(135deg, #5b9be4, #00d4cf)', color: '#5b9be4' },
+              { label: 'ACCURACY', value: `${(metrics.accuracy * 100).toFixed(1)}%`, sub: `from ${total} human ratings`, gradient: 'linear-gradient(135deg, #fbbf24, #f97316)', color: '#f97316' },
             ].map(({ label, value, sub, gradient, color }) => (
               <div key={label} className="card" style={{ textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
                 <div className="stat-bar" style={{ background: gradient }} />
