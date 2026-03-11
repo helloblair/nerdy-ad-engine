@@ -1,67 +1,51 @@
-"""Tests for FastAPI endpoints using TestClient with mocked Supabase."""
+"""Tests for FastAPI endpoints using TestClient against real Supabase."""
 
-from unittest.mock import patch, MagicMock
+import os
+import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-def _make_supabase_mock():
-    """Build a supabase mock that supports chained query builder calls."""
-    mock = MagicMock()
+from main import app, supabase
 
-    def _chain(*args, **kwargs):
-        return mock.table.return_value
-
-    mock.table.return_value.select.return_value = mock.table.return_value
-    mock.table.return_value.insert.return_value = mock.table.return_value
-    mock.table.return_value.update.return_value = mock.table.return_value
-    mock.table.return_value.eq.return_value = mock.table.return_value
-    mock.table.return_value.order.return_value = mock.table.return_value
-    mock.table.return_value.execute.return_value = MagicMock(data=[], count=0)
-    return mock
+client = TestClient(app)
 
 
-@pytest.fixture
-def client():
-    mock_sb = _make_supabase_mock()
-    with patch("main.supabase", mock_sb), \
-         patch("main.run_pipeline"):
-        from main import app
-        yield TestClient(app), mock_sb
+def _get_any_ad_id() -> str | None:
+    """Fetch a real ad ID from Supabase, or None if the table is empty."""
+    result = supabase.table("ads").select("id").limit(1).execute()
+    return result.data[0]["id"] if result.data else None
 
 
-# ── Test 1: GET /campaigns returns 200 ─────────────────────────────────────
+# ── Test 1: GET /health returns 200 ────────────────────────────────────────
 
-def test_list_campaigns_200(client):
-    tc, mock_sb = client
-    mock_sb.table.return_value.execute.return_value = MagicMock(data=[], count=0)
-    resp = tc.get("/campaigns")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert "campaigns" in body
-    assert "total" in body
-
-
-# ── Test 2: GET /ads/{ad_id} returns 200 with mocked data ─────────────────
-# (We test the /health endpoint instead since /ads needs a real UUID lookup)
-
-def test_health_returns_200(client):
-    tc, _ = client
-    resp = tc.get("/health")
+def test_health_returns_200():
+    resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
 
-# ── Test 3: POST /ads/{ad_id}/rate accepts valid rating ───────────────────
+# ── Test 2: GET /campaigns returns 200 ─────────────────────────────────────
 
-def test_rate_ad_valid(client):
-    tc, mock_sb = client
-    # Mock: ad exists
-    mock_sb.table.return_value.execute.return_value = MagicMock(
-        data=[{"id": "test-ad-id"}]
-    )
-    resp = tc.post("/ads/test-ad-id/rate", json={"rating": "good"})
+def test_list_campaigns_200():
+    resp = client.get("/campaigns")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "campaigns" in body
+    assert "total" in body
+    assert isinstance(body["campaigns"], list)
+
+
+# ── Test 3: POST /ads/{ad_id}/rate accepts a valid rating ─────────────────
+
+def test_rate_ad_valid():
+    ad_id = _get_any_ad_id()
+    if ad_id is None:
+        pytest.skip("No ads in Supabase to rate")
+    resp = client.post(f"/ads/{ad_id}/rate", json={"rating": "good"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -70,22 +54,18 @@ def test_rate_ad_valid(client):
 
 # ── Test 4: POST /ads/{ad_id}/rate rejects invalid rating ─────────────────
 
-def test_rate_ad_invalid(client):
-    tc, mock_sb = client
-    mock_sb.table.return_value.execute.return_value = MagicMock(
-        data=[{"id": "test-ad-id"}]
-    )
-    resp = tc.post("/ads/test-ad-id/rate", json={"rating": "terrible"})
+def test_rate_ad_invalid():
+    ad_id = _get_any_ad_id()
+    if ad_id is None:
+        pytest.skip("No ads in Supabase to rate")
+    resp = client.post(f"/ads/{ad_id}/rate", json={"rating": "terrible"})
     assert resp.status_code == 400
 
 
 # ── Test 5: GET /analytics/confusion-matrix returns expected fields ────────
 
-def test_confusion_matrix_fields(client):
-    tc, mock_sb = client
-    # Empty ratings → returns empty structure
-    mock_sb.table.return_value.execute.return_value = MagicMock(data=[])
-    resp = tc.get("/analytics/confusion-matrix")
+def test_confusion_matrix_fields():
+    resp = client.get("/analytics/confusion-matrix")
     assert resp.status_code == 200
     body = resp.json()
     assert "matrix" in body
