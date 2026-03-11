@@ -114,11 +114,11 @@ def _make_eval(scores: dict, meets: bool, weakest: str) -> dict:
     weights = EvaluatorAgent.WEIGHTS
     agg = round(sum(scores[d] * weights[d] for d in weights), 1)
     return {
-        "clarity": {"score": scores["clarity"], "rationale": "Test rationale for clarity."},
-        "value_proposition": {"score": scores["value_proposition"], "rationale": "Test rationale for vp."},
-        "cta_strength": {"score": scores["cta_strength"], "rationale": "Test rationale for cta."},
-        "brand_voice": {"score": scores["brand_voice"], "rationale": "Test rationale for bv."},
-        "emotional_resonance": {"score": scores["emotional_resonance"], "rationale": "Test rationale for er."},
+        "clarity": {"score": scores["clarity"], "rationale": "Test rationale for clarity.", "confidence": 0.9},
+        "value_proposition": {"score": scores["value_proposition"], "rationale": "Test rationale for vp.", "confidence": 0.9},
+        "cta_strength": {"score": scores["cta_strength"], "rationale": "Test rationale for cta.", "confidence": 0.9},
+        "brand_voice": {"score": scores["brand_voice"], "rationale": "Test rationale for bv.", "confidence": 0.9},
+        "emotional_resonance": {"score": scores["emotional_resonance"], "rationale": "Test rationale for er.", "confidence": 0.9},
         "aggregate_score": agg,
         "meets_threshold": meets,
         "weakest_dimension": weakest,

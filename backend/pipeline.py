@@ -142,7 +142,13 @@ def save_node(state: AdState) -> AdState:
             "cta_rationale": state["evaluation"]["cta_strength"]["rationale"],
             "brand_voice_rationale": state["evaluation"]["brand_voice"]["rationale"],
             "emotional_resonance_rationale": state["evaluation"]["emotional_resonance"]["rationale"],
+            "clarity_confidence": state["evaluation"]["clarity"]["confidence"],
+            "value_proposition_confidence": state["evaluation"]["value_proposition"]["confidence"],
+            "cta_confidence": state["evaluation"]["cta_strength"]["confidence"],
+            "brand_voice_confidence": state["evaluation"]["brand_voice"]["confidence"],
+            "emotional_resonance_confidence": state["evaluation"]["emotional_resonance"]["confidence"],
             "meets_threshold": state["evaluation"]["meets_threshold"],
+            "needs_human_review": state["evaluation"]["needs_human_review"],
         })
         print(f"✅ Saved — ad_id: {ad_id}")
         return {**state, "approved": True, "final_ad_id": ad_id}

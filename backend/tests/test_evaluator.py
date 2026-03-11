@@ -15,7 +15,7 @@ DIMENSIONS = ["clarity", "value_proposition", "cta_strength", "brand_voice", "em
 def _mock_anthropic_response(scores: dict, weakest: str = "cta_strength") -> MagicMock:
     """Build a mock Anthropic Messages response returning the given scores."""
     payload = {
-        dim: {"score": scores[dim], "rationale": f"Solid rationale for {dim} scoring."}
+        dim: {"score": scores[dim], "rationale": f"Solid rationale for {dim} scoring.", "confidence": 0.9}
         for dim in DIMENSIONS
     }
     payload["aggregate_score"] = 0  # evaluator recalculates

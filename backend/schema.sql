@@ -38,7 +38,13 @@ CREATE TABLE evaluations (
   cta_rationale TEXT,
   brand_voice_rationale TEXT,
   emotional_resonance_rationale TEXT,
+  clarity_confidence NUMERIC(3,2),
+  value_proposition_confidence NUMERIC(3,2),
+  cta_confidence NUMERIC(3,2),
+  brand_voice_confidence NUMERIC(3,2),
+  emotional_resonance_confidence NUMERIC(3,2),
   meets_threshold BOOLEAN DEFAULT FALSE,
+  needs_human_review BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

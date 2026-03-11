@@ -86,11 +86,11 @@ def test_pipeline_returns_aggregate_score(
     mock_writer.print_ad = MagicMock()
 
     result = EvaluationResult(
-        clarity=DimensionScore(score=9.0, rationale="Clear and direct message."),
-        value_proposition=DimensionScore(score=8.5, rationale="Strong outcome-focused value."),
-        cta_strength=DimensionScore(score=8.0, rationale="Specific and action-oriented CTA."),
-        brand_voice=DimensionScore(score=8.5, rationale="Matches Varsity Tutors brand tone."),
-        emotional_resonance=DimensionScore(score=8.0, rationale="Connects with parent emotions."),
+        clarity=DimensionScore(score=9.0, rationale="Clear and direct message.", confidence=0.95),
+        value_proposition=DimensionScore(score=8.5, rationale="Strong outcome-focused value.", confidence=0.9),
+        cta_strength=DimensionScore(score=8.0, rationale="Specific and action-oriented CTA.", confidence=0.9),
+        brand_voice=DimensionScore(score=8.5, rationale="Matches Varsity Tutors brand tone.", confidence=0.9),
+        emotional_resonance=DimensionScore(score=8.0, rationale="Connects with parent emotions.", confidence=0.85),
         aggregate_score=8.5, meets_threshold=True,
         weakest_dimension="emotional_resonance",
         improvement_suggestion="Could deepen the emotional hook.",
@@ -127,21 +127,21 @@ def test_low_score_triggers_fix_cycle(
     mock_writer.print_ad = MagicMock()
 
     low_result = EvaluationResult(
-        clarity=DimensionScore(score=5.0, rationale="Confusing message structure overall."),
-        value_proposition=DimensionScore(score=4.5, rationale="No concrete benefit stated."),
-        cta_strength=DimensionScore(score=5.5, rationale="Generic and uninspiring CTA."),
-        brand_voice=DimensionScore(score=4.0, rationale="Too corporate and impersonal."),
-        emotional_resonance=DimensionScore(score=3.5, rationale="No emotional connection at all."),
+        clarity=DimensionScore(score=5.0, rationale="Confusing message structure overall.", confidence=0.8),
+        value_proposition=DimensionScore(score=4.5, rationale="No concrete benefit stated.", confidence=0.85),
+        cta_strength=DimensionScore(score=5.5, rationale="Generic and uninspiring CTA.", confidence=0.8),
+        brand_voice=DimensionScore(score=4.0, rationale="Too corporate and impersonal.", confidence=0.9),
+        emotional_resonance=DimensionScore(score=3.5, rationale="No emotional connection at all.", confidence=0.9),
         aggregate_score=4.6, meets_threshold=False,
         weakest_dimension="emotional_resonance",
         improvement_suggestion="Needs emotional rewrite.",
     )
     high_result = EvaluationResult(
-        clarity=DimensionScore(score=9.0, rationale="Clear and direct now."),
-        value_proposition=DimensionScore(score=8.5, rationale="Strong outcome-focused value."),
-        cta_strength=DimensionScore(score=8.0, rationale="Specific and action-oriented CTA."),
-        brand_voice=DimensionScore(score=8.5, rationale="Matches Varsity Tutors brand tone."),
-        emotional_resonance=DimensionScore(score=8.0, rationale="Connects with parent emotions."),
+        clarity=DimensionScore(score=9.0, rationale="Clear and direct now.", confidence=0.95),
+        value_proposition=DimensionScore(score=8.5, rationale="Strong outcome-focused value.", confidence=0.9),
+        cta_strength=DimensionScore(score=8.0, rationale="Specific and action-oriented CTA.", confidence=0.9),
+        brand_voice=DimensionScore(score=8.5, rationale="Matches Varsity Tutors brand tone.", confidence=0.9),
+        emotional_resonance=DimensionScore(score=8.0, rationale="Connects with parent emotions.", confidence=0.85),
         aggregate_score=8.5, meets_threshold=True,
         weakest_dimension="emotional_resonance",
         improvement_suggestion="Minor polish.",

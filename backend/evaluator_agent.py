@@ -41,6 +41,7 @@ class DimensionScore(BaseModel):
     """Score + rationale for a single evaluation dimension."""
     score: float = Field(..., ge=1.0, le=10.0)
     rationale: str = Field(..., min_length=10)
+    confidence: float = Field(..., ge=0.0, le=1.0)
 
 
 class EvaluationResult(BaseModel):
@@ -54,6 +55,7 @@ class EvaluationResult(BaseModel):
     meets_threshold: bool
     weakest_dimension: str
     improvement_suggestion: str
+    needs_human_review: bool = False
 
     @field_validator("aggregate_score")
     @classmethod
@@ -114,29 +116,35 @@ Campaign Goal: {ad.goal}
 Product: {ad.product}
 
 Score each dimension from 1.0 to 10.0 with one decimal precision.
+For each dimension, also provide a confidence score (0.0-1.0) reflecting how certain you are in the score based on the available evidence. Score 0.9+ when the evidence is clear, 0.5-0.8 when the ad is ambiguous, below 0.5 when you're genuinely unsure.
 Identify the single weakest dimension and give one specific, actionable improvement suggestion.
 
 Respond with this exact JSON structure:
 {{
   "clarity": {{
     "score": <float 1.0-10.0>,
-    "rationale": "<1-2 sentences explaining the score>"
+    "rationale": "<1-2 sentences explaining the score>",
+    "confidence": <float 0.0-1.0>
   }},
   "value_proposition": {{
     "score": <float 1.0-10.0>,
-    "rationale": "<1-2 sentences explaining the score>"
+    "rationale": "<1-2 sentences explaining the score>",
+    "confidence": <float 0.0-1.0>
   }},
   "cta_strength": {{
     "score": <float 1.0-10.0>,
-    "rationale": "<1-2 sentences explaining the score>"
+    "rationale": "<1-2 sentences explaining the score>",
+    "confidence": <float 0.0-1.0>
   }},
   "brand_voice": {{
     "score": <float 1.0-10.0>,
-    "rationale": "<1-2 sentences explaining the score>"
+    "rationale": "<1-2 sentences explaining the score>",
+    "confidence": <float 0.0-1.0>
   }},
   "emotional_resonance": {{
     "score": <float 1.0-10.0>,
-    "rationale": "<1-2 sentences explaining the score>"
+    "rationale": "<1-2 sentences explaining the score>",
+    "confidence": <float 0.0-1.0>
   }},
   "aggregate_score": <weighted average, float 1.0-10.0>,
   "meets_threshold": <true if aggregate >= 7.0, else false>,
@@ -182,16 +190,24 @@ Respond with this exact JSON structure:
                 data["aggregate_score"] = calculated_aggregate
                 data["meets_threshold"] = calculated_aggregate >= self.THRESHOLD
 
+                dimensions = {
+                    "clarity": DimensionScore(**data["clarity"]),
+                    "value_proposition": DimensionScore(**data["value_proposition"]),
+                    "cta_strength": DimensionScore(**data["cta_strength"]),
+                    "brand_voice": DimensionScore(**data["brand_voice"]),
+                    "emotional_resonance": DimensionScore(**data["emotional_resonance"]),
+                }
+                needs_human_review = any(
+                    dim.confidence < 0.6 for dim in dimensions.values()
+                )
+
                 return EvaluationResult(
-                    clarity=DimensionScore(**data["clarity"]),
-                    value_proposition=DimensionScore(**data["value_proposition"]),
-                    cta_strength=DimensionScore(**data["cta_strength"]),
-                    brand_voice=DimensionScore(**data["brand_voice"]),
-                    emotional_resonance=DimensionScore(**data["emotional_resonance"]),
+                    **dimensions,
                     aggregate_score=data["aggregate_score"],
                     meets_threshold=data["meets_threshold"],
                     weakest_dimension=data["weakest_dimension"],
                     improvement_suggestion=data["improvement_suggestion"],
+                    needs_human_review=needs_human_review,
                 )
 
             except (json.JSONDecodeError, KeyError, ValueError) as e:
@@ -209,14 +225,15 @@ Respond with this exact JSON structure:
         print(f"{'='*60}")
         print(f"Headline: {ad.headline}")
         print(f"{'─'*60}")
-        print(f"  Clarity:             {result.clarity.score:.1f}/10  — {result.clarity.rationale}")
-        print(f"  Value Proposition:   {result.value_proposition.score:.1f}/10  — {result.value_proposition.rationale}")
-        print(f"  CTA Strength:        {result.cta_strength.score:.1f}/10  — {result.cta_strength.rationale}")
-        print(f"  Brand Voice:         {result.brand_voice.score:.1f}/10  — {result.brand_voice.rationale}")
-        print(f"  Emotional Resonance: {result.emotional_resonance.score:.1f}/10  — {result.emotional_resonance.rationale}")
+        print(f"  Clarity:             {result.clarity.score:.1f}/10  (conf: {result.clarity.confidence:.2f})  — {result.clarity.rationale}")
+        print(f"  Value Proposition:   {result.value_proposition.score:.1f}/10  (conf: {result.value_proposition.confidence:.2f})  — {result.value_proposition.rationale}")
+        print(f"  CTA Strength:        {result.cta_strength.score:.1f}/10  (conf: {result.cta_strength.confidence:.2f})  — {result.cta_strength.rationale}")
+        print(f"  Brand Voice:         {result.brand_voice.score:.1f}/10  (conf: {result.brand_voice.confidence:.2f})  — {result.brand_voice.rationale}")
+        print(f"  Emotional Resonance: {result.emotional_resonance.score:.1f}/10  (conf: {result.emotional_resonance.confidence:.2f})  — {result.emotional_resonance.rationale}")
         print(f"{'─'*60}")
         print(f"  AGGREGATE:           {result.aggregate_score:.1f}/10")
         print(f"  MEETS THRESHOLD:     {result.meets_threshold} (threshold: {self.THRESHOLD})")
+        print(f"  NEEDS HUMAN REVIEW:  {result.needs_human_review}")
         print(f"  WEAKEST DIMENSION:   {result.weakest_dimension}")
         print(f"  SUGGESTION:          {result.improvement_suggestion}")
         print(f"{'='*60}\n")

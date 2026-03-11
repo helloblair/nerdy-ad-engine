@@ -75,7 +75,13 @@ class SQLiteDatabase(DatabaseInterface):
                     cta_rationale TEXT,
                     brand_voice_rationale TEXT,
                     emotional_resonance_rationale TEXT,
+                    clarity_confidence REAL,
+                    value_proposition_confidence REAL,
+                    cta_confidence REAL,
+                    brand_voice_confidence REAL,
+                    emotional_resonance_confidence REAL,
                     meets_threshold INTEGER NOT NULL DEFAULT 0,
+                    needs_human_review INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (ad_id) REFERENCES ads(id)
                 );
@@ -221,15 +227,21 @@ class SQLiteDatabase(DatabaseInterface):
                    brand_voice, emotional_resonance, aggregate_score,
                    clarity_rationale, value_proposition_rationale, cta_rationale,
                    brand_voice_rationale, emotional_resonance_rationale,
-                   meets_threshold, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   clarity_confidence, value_proposition_confidence, cta_confidence,
+                   brand_voice_confidence, emotional_resonance_confidence,
+                   meets_threshold, needs_human_review, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (row_id, data["ad_id"], data["clarity"], data["value_proposition"],
                  data["cta_score"], data["brand_voice"], data["emotional_resonance"],
                  data["aggregate_score"],
                  data.get("clarity_rationale"), data.get("value_proposition_rationale"),
                  data.get("cta_rationale"), data.get("brand_voice_rationale"),
                  data.get("emotional_resonance_rationale"),
-                 1 if data.get("meets_threshold") else 0, now),
+                 data.get("clarity_confidence"), data.get("value_proposition_confidence"),
+                 data.get("cta_confidence"), data.get("brand_voice_confidence"),
+                 data.get("emotional_resonance_confidence"),
+                 1 if data.get("meets_threshold") else 0,
+                 1 if data.get("needs_human_review") else 0, now),
             )
             conn.commit()
             row = conn.execute("SELECT * FROM evaluations WHERE id = ?", (row_id,)).fetchone()

@@ -34,28 +34,28 @@ def test_generated_ad_requires_fields():
 
 def test_dimension_score_rejects_out_of_range():
     with pytest.raises(ValidationError):
-        DimensionScore(score=11.0, rationale="This score is too high for the range.")
+        DimensionScore(score=11.0, rationale="This score is too high for the range.", confidence=0.9)
 
     with pytest.raises(ValidationError):
-        DimensionScore(score=0.5, rationale="This score is too low for the range.")
+        DimensionScore(score=0.5, rationale="This score is too low for the range.", confidence=0.9)
 
 
 # ── Test 5: DimensionScore rejects short rationale ────────────────────────
 
 def test_dimension_score_rejects_short_rationale():
     with pytest.raises(ValidationError):
-        DimensionScore(score=7.0, rationale="Short")
+        DimensionScore(score=7.0, rationale="Short", confidence=0.9)
 
 
 # ── Test 6: EvaluationResult aggregate validator rounds to 1 decimal ──────
 
 def test_evaluation_result_rounds_aggregate():
     result = EvaluationResult(
-        clarity=DimensionScore(score=8.0, rationale="Clear and direct message targeting parents."),
-        value_proposition=DimensionScore(score=7.5, rationale="Strong outcome-focused proposition."),
-        cta_strength=DimensionScore(score=7.0, rationale="Specific call to action."),
-        brand_voice=DimensionScore(score=8.0, rationale="Matches brand tone well."),
-        emotional_resonance=DimensionScore(score=7.0, rationale="Reasonable emotional connection."),
+        clarity=DimensionScore(score=8.0, rationale="Clear and direct message targeting parents.", confidence=0.9),
+        value_proposition=DimensionScore(score=7.5, rationale="Strong outcome-focused proposition.", confidence=0.9),
+        cta_strength=DimensionScore(score=7.0, rationale="Specific call to action.", confidence=0.9),
+        brand_voice=DimensionScore(score=8.0, rationale="Matches brand tone well.", confidence=0.9),
+        emotional_resonance=DimensionScore(score=7.0, rationale="Reasonable emotional connection.", confidence=0.9),
         aggregate_score=7.5555,
         meets_threshold=True,
         weakest_dimension="cta_strength",
