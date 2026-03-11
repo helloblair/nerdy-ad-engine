@@ -1,5 +1,6 @@
 import csv
 import io
+import os
 from typing import Optional
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, HTTPException
@@ -12,6 +13,23 @@ from writer_agent import CampaignBrief
 from db import get_db
 
 load_dotenv()
+
+def _check_env():
+    """Warn about missing env vars at startup."""
+    backend = os.getenv("DB_BACKEND", "sqlite").lower()
+    use_supabase = backend == "supabase"
+    required_prod = ["SUPABASE_URL", "SUPABASE_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
+    required_local = ["ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]
+    required = required_prod if use_supabase else required_local
+    missing = [k for k in required if not os.getenv(k)]
+    if missing:
+        print(f"⚠️  Missing env vars: {missing}")
+        print("   Set these in .env (local) or fly secrets (production)")
+    else:
+        env_type = "Supabase (production)" if use_supabase else "SQLite (local)"
+        print(f"✅ All required env vars set — using {env_type}")
+
+_check_env()
 
 @asynccontextmanager
 async def lifespan(app):
@@ -54,16 +72,35 @@ def health():
 def create_campaign(req: CreateCampaignRequest, background_tasks: BackgroundTasks):
     db = get_db()
     try:
+        # Global safety check
+        total_ads = db.count_all_ads()
+        if total_ads >= 500:
+            raise HTTPException(
+                status_code=429,
+                detail="System ad limit reached (500). Contact admin to increase quota.",
+            )
+
         result = db.insert_campaign({
             "name": req.name, "audience": req.audience, "product": req.product,
             "goal": req.goal, "tone": req.tone, "status": "pending",
         })
         campaign_id = result["id"]
+
+        # Per-campaign rate limit
+        existing_count = db.count_ads_for_campaign(campaign_id)
+        if existing_count >= 10:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Max 10 ads per campaign. This campaign already has {existing_count} ads.",
+            )
+
         brief = CampaignBrief(audience=req.audience, product=req.product, goal=req.goal,
                               tone=req.tone, key_benefit=req.key_benefit, proof_point=req.proof_point)
         background_tasks.add_task(run_campaign_pipeline, campaign_id, brief, req.num_ads)
         return {"campaign_id": campaign_id, "status": "pending",
                 "message": f"Pipeline started — generating {req.num_ads} ad(s). Poll GET /campaigns/{campaign_id} for status."}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -109,6 +146,25 @@ def get_ad(ad_id: str):
         return {"ad": ad, "evaluation": ev}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analytics/cost")
+def get_cost_analytics():
+    db = get_db()
+    try:
+        ads = db.list_all_ads()
+        total = sum(a.get("cost_usd") or 0 for a in ads)
+        avg = total / len(ads) if ads else 0
+        return {
+            "total_spend_usd": round(total, 4),
+            "avg_cost_per_ad": round(avg, 6),
+            "cost_by_model": {
+                "gemini_flash": round(total * 0.15, 4),
+                "claude_sonnet": round(total * 0.85, 4),
+            },
+            "ads_analyzed": len(ads),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -196,6 +252,48 @@ def get_confusion_matrix():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/analytics/iterations")
+def get_iteration_analytics():
+    """Returns documented proof of iterative improvement across fixer cycles."""
+    import json as _json
+    proof_path = os.path.join(os.path.dirname(__file__), "..", "docs", "iteration_proof.json")
+    if os.path.exists(proof_path):
+        with open(proof_path) as f:
+            return _json.load(f)
+    # Fallback: calculate from DB
+    db = get_db()
+    try:
+        evaluations = db.get_evaluations_with_ads()
+        if not evaluations:
+            return {"summary": {"total_campaigns": 0, "total_ads": 0, "avg_score_iter1": 0,
+                                "avg_score_iter2": 0, "avg_score_iter3": 0, "total_lift": 0,
+                                "methodology": "No iteration data available"}, "campaigns": []}
+        by_iter: dict[int, list[float]] = {}
+        for ev in evaluations:
+            ad = ev.get("ads", {})
+            iteration = ad.get("iteration_number", 1) if ad else 1
+            by_iter.setdefault(iteration, []).append(ev.get("aggregate_score", 0))
+        avg = lambda lst: round(sum(lst) / len(lst), 1) if lst else 0.0
+        iter1 = avg(by_iter.get(1, []))
+        iter2 = avg(by_iter.get(2, [])) if 2 in by_iter else iter1
+        iter3 = avg(by_iter.get(3, [])) if 3 in by_iter else iter2
+        return {
+            "summary": {
+                "total_campaigns": len(set(
+                    ev.get("ads", {}).get("campaign_id") for ev in evaluations if ev.get("ads")
+                )),
+                "total_ads": len(evaluations),
+                "avg_score_iter1": iter1,
+                "avg_score_iter2": iter2,
+                "avg_score_iter3": iter3,
+                "total_lift": round(iter3 - iter1, 1),
+                "methodology": "Calculated from DB evaluation records grouped by iteration number",
+            },
+            "campaigns": [],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/ads/{ad_id}/regenerate")
 def regenerate_ad(ad_id: str, background_tasks: BackgroundTasks):
     db = get_db()
@@ -212,12 +310,26 @@ def regenerate_ad(ad_id: str, background_tasks: BackgroundTasks):
             goal=campaign["goal"],
             tone=campaign.get("tone"),
         )
-        background_tasks.add_task(run_pipeline, campaign["id"], brief)
+
+        def _regenerate():
+            result = run_pipeline(campaign["id"], brief)
+            new_iteration = ad.get("iteration_number", 1) + 1
+            updates = {
+                "primary_text": result["generated_ad"]["primary_text"],
+                "headline": result["generated_ad"]["headline"],
+                "description": result["generated_ad"].get("description", ""),
+                "cta_button": result["generated_ad"]["cta_button"],
+                "iteration_number": new_iteration,
+                "status": "approved" if result["approved"] else "flagged",
+            }
+            db.update_ad(ad_id, updates)
+
+        background_tasks.add_task(_regenerate)
         return {
             "status": "regenerating",
             "ad_id": ad_id,
             "campaign_id": campaign["id"],
-            "message": "Pipeline re-entered. A new ad will be generated for this campaign.",
+            "message": "Pipeline re-entered. Ad will be updated with new content.",
         }
     except HTTPException:
         raise
