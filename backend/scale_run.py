@@ -20,7 +20,7 @@ CAMPAIGNS = [
         "tone": "urgent, empathetic, outcome-focused",
         "key_benefit": "personalized learning matched to your child's gaps",
         "proof_point": "students improve an average of 360 points in 8 weeks",
-        "num_ads": 4,
+        "num_ads": 10,
     },
     {
         "name": "GPA vs SAT Reframe — High Achievers",
@@ -30,7 +30,7 @@ CAMPAIGNS = [
         "tone": "reframe-focused, empathetic, specific",
         "key_benefit": "your child is smart — the SAT is a learnable test",
         "proof_point": "3.8 GPA students average 1380+ after 8 weeks of targeted prep",
-        "num_ads": 4,
+        "num_ads": 10,
     },
     {
         "name": "Middle School Math — Awareness",
@@ -40,7 +40,7 @@ CAMPAIGNS = [
         "tone": "warm, reassuring, reframe-focused",
         "key_benefit": "tutors who explain math the way your child's brain works",
         "proof_point": "93% of students improve at least one letter grade",
-        "num_ads": 4,
+        "num_ads": 10,
     },
     {
         "name": "ACT Countdown — Seniors",
@@ -50,7 +50,7 @@ CAMPAIGNS = [
         "tone": "urgent, deadline-focused, outcome-driven",
         "key_benefit": "targeted ACT prep in the time you have left",
         "proof_point": "students improve an average of 4 composite points in 4 weeks",
-        "num_ads": 4,
+        "num_ads": 10,
     },
     {
         "name": "Reading Comprehension — Elementary",
@@ -60,7 +60,7 @@ CAMPAIGNS = [
         "tone": "warm, nurturing, parent-pain focused",
         "key_benefit": "build reading confidence before it becomes a bigger gap",
         "proof_point": "students gain an average of 1.5 grade levels in 10 weeks",
-        "num_ads": 4,
+        "num_ads": 10,
     },
 ]
 

@@ -27,6 +27,17 @@ from researcher_agent import ResearcherAgent
 
 load_dotenv()
 
+# ─── Langfuse Observability ──────────────────────────────────────────────────
+
+try:
+    from langfuse import Langfuse
+    langfuse = Langfuse(
+        public_key=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
+        secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),
+    ) if os.getenv("LANGFUSE_PUBLIC_KEY") else None
+except Exception:
+    langfuse = None
+
 # ─── Pipeline State ───────────────────────────────────────────────────────────
 
 class AdState(TypedDict):
@@ -56,6 +67,7 @@ def write_node(state: AdState) -> AdState:
     iteration = state.get("iteration", 1)
     fix = state.get("fix")
     print(f"\n✍️  WriterAgent — iteration {iteration}")
+    trace = langfuse.trace(name="write_node", metadata={"iteration": iteration}) if langfuse else None
     writer_input = WriterInput(
         brief=CampaignBrief(**state["brief"]),
         fixer_feedback=fix["targeted_instruction"] if fix and not fix.get("escalate") else None,
@@ -67,11 +79,14 @@ def write_node(state: AdState) -> AdState:
     seed = int(raw_seed) if raw_seed and raw_seed.lower() != "none" else None
     ad = writer.generate(writer_input, seed=seed)
     writer.print_ad(ad, iteration=iteration)
+    if trace:
+        trace.update(output=ad.model_dump())
     return {**state, "generated_ad": ad.model_dump(), "iteration": iteration}
 
 def evaluate_node(state: AdState) -> AdState:
     iteration = state["iteration"]
     print(f"\n🔍 EvaluatorAgent — iteration {iteration}")
+    trace = langfuse.trace(name="evaluate_node", metadata={"iteration": iteration}) if langfuse else None
     ad_content = AdContent(
         primary_text=state["generated_ad"]["primary_text"],
         headline=state["generated_ad"]["headline"],
@@ -95,6 +110,8 @@ def evaluate_node(state: AdState) -> AdState:
         "meets_threshold": result.meets_threshold,
         "weakest_dimension": result.weakest_dimension,
     })
+    if trace:
+        trace.update(output=result.model_dump())
     return {**state, "evaluation": result.model_dump(), "all_evaluations": all_evals}
 
 def _detect_dimension_regression(state: AdState) -> str | None:
@@ -154,6 +171,17 @@ def fix_node(state: AdState) -> AdState:
     fixer.print_fix(fix)
     return {**state, "fix": fix.model_dump(), "iteration": iteration + 1, "escalated": fix.escalate}
 
+def _estimate_cost(state: AdState) -> float:
+    """Rough cost estimate based on token approximation (len/4)."""
+    ad = state.get("generated_ad", {})
+    evaluation = state.get("evaluation", {})
+    writer_tokens = len((ad.get("primary_text", "") + ad.get("headline", ""))) / 4
+    eval_tokens = len(str(evaluation)) / 4
+    gemini_cost = (writer_tokens / 1_000_000) * 0.30
+    claude_cost = (eval_tokens / 1_000_000) * 15.00
+    return round(gemini_cost + claude_cost, 6)
+
+
 def _db_save_with_retry(operation, description: str, max_attempts: int = 3):
     """Execute a DB operation with retry logic for transient failures."""
     for attempt in range(1, max_attempts + 1):
@@ -207,7 +235,9 @@ def save_node(state: AdState) -> AdState:
             }),
             "Supabase save (evaluation)",
         )
-        print(f"✅ Saved — ad_id: {ad_id}")
+        cost_usd = _estimate_cost(state)
+        db.update_ad(ad_id, {"cost_usd": cost_usd})
+        print(f"✅ Saved — ad_id: {ad_id} (cost: ${cost_usd})")
         return {**state, "approved": True, "final_ad_id": ad_id}
     except Exception as e:
         print(f"❌ Save failed after retries: {e}")
@@ -230,7 +260,9 @@ def flag_node(state: AdState) -> AdState:
             "Supabase save (flagged ad)",
         )
         ad_id = ad_result["id"]
-        print(f"⚠️  Flagged — ad_id: {ad_id}")
+        cost_usd = _estimate_cost(state)
+        db.update_ad(ad_id, {"cost_usd": cost_usd})
+        print(f"⚠️  Flagged — ad_id: {ad_id} (cost: ${cost_usd})")
         return {**state, "approved": False, "final_ad_id": ad_id}
     except Exception as e:
         print(f"❌ Flag failed after retries: {e}")
