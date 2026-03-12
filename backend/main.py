@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from pipeline import run_pipeline
 from writer_agent import CampaignBrief
+from ab_variant_generator import generate_ab_variants, CREATIVE_APPROACHES
 from db import get_db
 
 load_dotenv()
@@ -418,5 +419,91 @@ def export_csv():
             media_type="text/csv",
             headers={"Content-Disposition": 'attachment; filename="nerdy_ad_report.csv"'},
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ─── A/B Variant Endpoints ──────────────────────────────────────────────────
+
+class ABTestRequest(BaseModel):
+    num_variants: Optional[int] = 3
+    approach_names: Optional[list[str]] = None
+
+@app.post("/campaigns/{campaign_id}/ab-test", status_code=202)
+def create_ab_test(campaign_id: str, req: ABTestRequest, background_tasks: BackgroundTasks):
+    db = get_db()
+    try:
+        campaign = db.get_campaign(campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+        brief = CampaignBrief(
+            audience=campaign["audience"],
+            product=campaign["product"],
+            goal=campaign["goal"],
+            tone=campaign.get("tone"),
+        )
+
+        # Validate approach names up front if provided
+        if req.approach_names:
+            valid_names = {a["name"] for a in CREATIVE_APPROACHES}
+            invalid = [n for n in req.approach_names if n not in valid_names]
+            if invalid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown approaches: {invalid}. Valid: {sorted(valid_names)}",
+                )
+
+        def _run_ab_test():
+            db_inner = get_db()
+            try:
+                db_inner.update_campaign_status(campaign_id, "running")
+                generate_ab_variants(
+                    campaign_id, brief,
+                    num_variants=req.num_variants,
+                    approach_names=req.approach_names,
+                )
+                db_inner.update_campaign_status(campaign_id, "completed")
+            except Exception as e:
+                print(f"❌ A/B test for {campaign_id} failed: {e}")
+                db_inner.update_campaign_status(campaign_id, "failed")
+
+        background_tasks.add_task(_run_ab_test)
+        num = len(req.approach_names) if req.approach_names else req.num_variants
+        return {
+            "campaign_id": campaign_id,
+            "status": "pending",
+            "num_variants": num,
+            "message": f"A/B test started — generating {num} variant(s). Poll GET /campaigns/{campaign_id} for status.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/campaigns/{campaign_id}/variants")
+def get_campaign_variants(campaign_id: str):
+    db = get_db()
+    try:
+        campaign = db.get_campaign(campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+        ads = db.list_ads_for_campaign(campaign_id)
+        by_approach: dict[str, list[dict]] = {}
+        for ad in ads:
+            approach = ad.get("variant_approach") or "default"
+            ev = db.get_evaluation_for_ad(ad["id"])
+            ad_with_eval = {**ad, "evaluation": ev}
+            by_approach.setdefault(approach, []).append(ad_with_eval)
+
+        return {
+            "campaign_id": campaign_id,
+            "campaign": campaign,
+            "variants": by_approach,
+            "total_ads": len(ads),
+            "approaches_used": list(by_approach.keys()),
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

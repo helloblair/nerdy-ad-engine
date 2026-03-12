@@ -58,6 +58,7 @@ class SQLiteDatabase(DatabaseInterface):
                     iteration_number INTEGER NOT NULL DEFAULT 1,
                     status TEXT NOT NULL DEFAULT 'approved',
                     cost_usd REAL DEFAULT 0,
+                    variant_approach TEXT,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (campaign_id) REFERENCES campaigns(id)
                 );
@@ -96,10 +97,13 @@ class SQLiteDatabase(DatabaseInterface):
                 );
             """)
             conn.commit()
-            # Migrate: add cost_usd to existing ads tables that lack it
+            # Migrate: add columns to existing ads tables that lack them
             cols = [r[1] for r in conn.execute("PRAGMA table_info(ads)").fetchall()]
             if "cost_usd" not in cols:
                 conn.execute("ALTER TABLE ads ADD COLUMN cost_usd REAL DEFAULT 0")
+                conn.commit()
+            if "variant_approach" not in cols:
+                conn.execute("ALTER TABLE ads ADD COLUMN variant_approach TEXT")
                 conn.commit()
         finally:
             conn.close()
@@ -177,11 +181,12 @@ class SQLiteDatabase(DatabaseInterface):
         try:
             conn.execute(
                 """INSERT INTO ads (id, campaign_id, primary_text, headline, description,
-                   cta_button, iteration_number, status, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   cta_button, iteration_number, status, variant_approach, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (row_id, data["campaign_id"], data["primary_text"], data["headline"],
                  data.get("description", ""), data["cta_button"],
-                 data.get("iteration_number", 1), data.get("status", "approved"), now),
+                 data.get("iteration_number", 1), data.get("status", "approved"),
+                 data.get("variant_approach"), now),
             )
             conn.commit()
             row = conn.execute("SELECT * FROM ads WHERE id = ?", (row_id,)).fetchone()

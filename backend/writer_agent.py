@@ -36,6 +36,7 @@ class GeneratedAd(BaseModel):
     description: str
     cta_button: str
     writer_notes: Optional[str] = None
+    variant_approach: Optional[str] = None
 
 class WriterAgent:
 
