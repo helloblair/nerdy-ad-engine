@@ -81,7 +81,6 @@ export default function Survey() {
           </button>
         ))}
       </div>
-      <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: '1.5rem' }}>Imagine you're a parent with a child aged 8–18. Would you click this ad?</p>
     </div>
   );
 }

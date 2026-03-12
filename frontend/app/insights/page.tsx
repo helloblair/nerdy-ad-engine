@@ -11,8 +11,8 @@ export default function Insights() {
     Promise.all([
       fetch(`${API}/analytics/confusion-matrix`).then(r => r.json()),
       fetch(`${API}/analytics/trends`).then(r => r.json()),
-      fetch(`${API}/analytics/cost`).then(r => r.json()).catch(() => null),
-      fetch(`${API}/analytics/iterations`).then(r => r.json()).catch(() => null),
+      fetch(`${API}/analytics/cost`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/analytics/iterations`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([m, t, c, it]) => { setMatrix(m); setTrends(t); setCostData(c); setIterData(it); setLoading(false); }).catch(() => setLoading(false));
   }, []);
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><span className="mono rainbow-text" style={{ fontWeight: 600 }}>LOADING...</span></div>;
