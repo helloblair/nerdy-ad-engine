@@ -11,3 +11,8 @@ node_modules/
 assets/
 .vercel
 .env*.local
+backend/progress_tracker.py
+docs/progress.json
+docs/roadmap.html
+docs/iteration_proof.json
+docs/NerdyAdEngine_PreBuild_Proposal.pdf
