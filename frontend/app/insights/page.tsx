@@ -72,7 +72,7 @@ export default function Insights() {
           </div>
           <div className="card" style={{ marginBottom: '2rem' }}>
             <h2 style={{ fontSize: '0.875rem', fontWeight: 600, marginTop: 0, marginBottom: '1.5rem', color: 'var(--muted)', letterSpacing: '0.05em' }}>CONFUSION MATRIX — {total} RATINGS</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '500px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               {[
                 { label: 'True Positive', sublabel: 'Human ✓ AI ✓', value: m.true_positive ?? 0, bgVar: 'var(--green-bg)', borderVar: 'var(--green-border)', colorVar: 'var(--green-text)' },
                 { label: 'False Positive', sublabel: 'Human ✗ AI ✓', value: m.false_positive ?? 0, bgVar: 'var(--red-bg)', borderVar: 'var(--red-border)', colorVar: 'var(--red-text)' },

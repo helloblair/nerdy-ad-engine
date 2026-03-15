@@ -42,7 +42,7 @@ export default function Survey() {
   const ad = ads[current];
   const progress = (current / ads.length) * 100;
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+    <div>
       <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600, margin: '0 0 4px' }}><span className="rainbow-text">Ad Rating</span> Survey</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.875rem', margin: 0 }}>Would this ad make you click? Takes ~3 minutes.</p>

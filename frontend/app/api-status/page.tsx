@@ -17,7 +17,7 @@ export default function ApiStatus() {
         <h1 style={{ fontSize: '1.75rem', fontWeight: 600, margin: 0 }}><span className="rainbow-text">API Status</span></h1>
         <p style={{ color: 'var(--muted)', marginTop: '4px', fontSize: '0.875rem' }}>Backend connectivity check</p>
       </div>
-      <div className="card" style={{ maxWidth: '600px' }}>
+      <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem' }}>
           <div style={{
             width: '12px', height: '12px', borderRadius: '50%',
