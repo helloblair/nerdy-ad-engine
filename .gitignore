@@ -7,6 +7,8 @@ __pycache__/
 node_modules/
 .next/
 *.log
+*.bak
+*.bak2
 .DS_Store
 assets/
 .vercel
