@@ -254,3 +254,13 @@ And I should've built the abstraction layer *first* — I wired agents directly 
 **Tradeoffs:** More variants = more API cost per campaign. Three variants means 3x the Gemini + Claude API calls (minimum 6 calls, up to 18 if all three variants need the full 3-iteration fix cycle). The approach injection via tone modification is a pragmatic hack — it works because Gemini is sensitive to tone instructions, but a cleaner design would use a dedicated `creative_direction` field in the prompt template. Also, the current implementation runs variants sequentially, not in parallel — parallelizing would cut wall-clock time significantly but adds complexity around rate limiting and error handling.
 
 **Context:** PRD v2 scope explicitly calls for "A/B variant generation — same brief, different creative approaches." This implementation satisfies that requirement with a clean separation from the existing iteration loop. The `POST /campaigns/{id}/ab-test` endpoint accepts optional approach names for controlled testing, or defaults to random selection for exploratory generation.
+
+## [2026-03-14] — Integrated Nerdy SAT Messaging Guidance + Persona Targeting
+
+**Decision:** Overhauled WriterAgent and EvaluatorAgent prompts with real Nerdy messaging data (do's/don'ts, competitive positioning, persona psychology, proven hooks) and added persona targeting to CampaignBrief.
+
+**Why:** We received detailed SAT messaging guidance from Nerdy including specific language rules ("your child" not "your student", "SAT tutoring" not "SAT prep"), competitive positioning data (10x vs self-study, 2.6x vs group classes, pricing comparisons), 15 detailed parent personas with psychology/hook examples, and explicit anti-patterns (no corporate language, no fake scarcity, no vague claims). This is exactly the kind of domain knowledge that separates generic ad generation from ads that could actually run. Baking it into both the writer AND evaluator means the system can now generate persona-targeted ads AND score them against real brand standards.
+
+**Tradeoffs:** The system prompts are significantly longer now, which means more input tokens per call. But the quality-per-token should improve dramatically — fewer iteration cycles needed because the writer has better guidance upfront, and the evaluator catches brand violations that were previously invisible.
+
+**Context:** This data came from the Nerdy team via the Gauntlet Slack channel. The personas map directly to real sales call patterns and customer segments. Adding persona targeting to CampaignBrief also gives us a natural way to generate diverse ad libraries (9 personas × multiple campaigns = richer 50+ ad corpus with genuine variety).
