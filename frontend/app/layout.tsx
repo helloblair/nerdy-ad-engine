@@ -8,7 +8,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en"><body>
       <ThemeProvider>
         <Nav />
-        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>{children}</main>
+        <main style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem' }}>{children}</main>
       </ThemeProvider>
     </body></html>
   );

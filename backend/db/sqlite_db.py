@@ -59,6 +59,7 @@ class SQLiteDatabase(DatabaseInterface):
                     status TEXT NOT NULL DEFAULT 'approved',
                     cost_usd REAL DEFAULT 0,
                     variant_approach TEXT,
+                    image_url TEXT DEFAULT '',
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (campaign_id) REFERENCES campaigns(id)
                 );
@@ -82,6 +83,12 @@ class SQLiteDatabase(DatabaseInterface):
                     cta_confidence REAL,
                     brand_voice_confidence REAL,
                     emotional_resonance_confidence REAL,
+                    visual_brand_consistency REAL,
+                    visual_brand_consistency_rationale TEXT,
+                    visual_brand_consistency_confidence REAL,
+                    scroll_stopping_power REAL,
+                    scroll_stopping_power_rationale TEXT,
+                    scroll_stopping_power_confidence REAL,
                     meets_threshold INTEGER NOT NULL DEFAULT 0,
                     needs_human_review INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
@@ -97,13 +104,36 @@ class SQLiteDatabase(DatabaseInterface):
                 );
             """)
             conn.commit()
-            # Migrate: add columns to existing ads tables that lack them
-            cols = [r[1] for r in conn.execute("PRAGMA table_info(ads)").fetchall()]
-            if "cost_usd" not in cols:
+            # Migrate: add columns to existing tables that lack them
+            ads_cols = [r[1] for r in conn.execute("PRAGMA table_info(ads)").fetchall()]
+            if "cost_usd" not in ads_cols:
                 conn.execute("ALTER TABLE ads ADD COLUMN cost_usd REAL DEFAULT 0")
                 conn.commit()
-            if "variant_approach" not in cols:
+            if "variant_approach" not in ads_cols:
                 conn.execute("ALTER TABLE ads ADD COLUMN variant_approach TEXT")
+                conn.commit()
+            if "image_url" not in ads_cols:
+                conn.execute("ALTER TABLE ads ADD COLUMN image_url TEXT DEFAULT ''")
+                conn.commit()
+
+            eval_cols = [r[1] for r in conn.execute("PRAGMA table_info(evaluations)").fetchall()]
+            if "visual_brand_consistency" not in eval_cols:
+                conn.execute("ALTER TABLE evaluations ADD COLUMN visual_brand_consistency REAL")
+                conn.commit()
+            if "visual_brand_consistency_rationale" not in eval_cols:
+                conn.execute("ALTER TABLE evaluations ADD COLUMN visual_brand_consistency_rationale TEXT")
+                conn.commit()
+            if "visual_brand_consistency_confidence" not in eval_cols:
+                conn.execute("ALTER TABLE evaluations ADD COLUMN visual_brand_consistency_confidence REAL")
+                conn.commit()
+            if "scroll_stopping_power" not in eval_cols:
+                conn.execute("ALTER TABLE evaluations ADD COLUMN scroll_stopping_power REAL")
+                conn.commit()
+            if "scroll_stopping_power_rationale" not in eval_cols:
+                conn.execute("ALTER TABLE evaluations ADD COLUMN scroll_stopping_power_rationale TEXT")
+                conn.commit()
+            if "scroll_stopping_power_confidence" not in eval_cols:
+                conn.execute("ALTER TABLE evaluations ADD COLUMN scroll_stopping_power_confidence REAL")
                 conn.commit()
         finally:
             conn.close()
@@ -181,12 +211,12 @@ class SQLiteDatabase(DatabaseInterface):
         try:
             conn.execute(
                 """INSERT INTO ads (id, campaign_id, primary_text, headline, description,
-                   cta_button, iteration_number, status, variant_approach, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   cta_button, iteration_number, status, variant_approach, image_url, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (row_id, data["campaign_id"], data["primary_text"], data["headline"],
                  data.get("description", ""), data["cta_button"],
                  data.get("iteration_number", 1), data.get("status", "approved"),
-                 data.get("variant_approach"), now),
+                 data.get("variant_approach"), data.get("image_url", ""), now),
             )
             conn.commit()
             row = conn.execute("SELECT * FROM ads WHERE id = ?", (row_id,)).fetchone()
@@ -272,8 +302,12 @@ class SQLiteDatabase(DatabaseInterface):
                    brand_voice_rationale, emotional_resonance_rationale,
                    clarity_confidence, value_proposition_confidence, cta_confidence,
                    brand_voice_confidence, emotional_resonance_confidence,
+                   visual_brand_consistency, visual_brand_consistency_rationale,
+                   visual_brand_consistency_confidence,
+                   scroll_stopping_power, scroll_stopping_power_rationale,
+                   scroll_stopping_power_confidence,
                    meets_threshold, needs_human_review, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (row_id, data["ad_id"], data["clarity"], data["value_proposition"],
                  data["cta_score"], data["brand_voice"], data["emotional_resonance"],
                  data["aggregate_score"],
@@ -283,6 +317,12 @@ class SQLiteDatabase(DatabaseInterface):
                  data.get("clarity_confidence"), data.get("value_proposition_confidence"),
                  data.get("cta_confidence"), data.get("brand_voice_confidence"),
                  data.get("emotional_resonance_confidence"),
+                 data.get("visual_brand_consistency"),
+                 data.get("visual_brand_consistency_rationale"),
+                 data.get("visual_brand_consistency_confidence"),
+                 data.get("scroll_stopping_power"),
+                 data.get("scroll_stopping_power_rationale"),
+                 data.get("scroll_stopping_power_confidence"),
                  1 if data.get("meets_threshold") else 0,
                  1 if data.get("needs_human_review") else 0, now),
             )

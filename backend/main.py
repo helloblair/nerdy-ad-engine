@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from pipeline import run_pipeline
@@ -41,6 +42,12 @@ async def lifespan(app):
 
 app = FastAPI(title="Nerdy Autonomous Ad Engine", version="1.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# Serve generated ad images as static files
+import os as _os
+_images_dir = _os.path.join(_os.path.dirname(__file__), "data", "images")
+_os.makedirs(_images_dir, exist_ok=True)
+app.mount("/images", StaticFiles(directory=_images_dir), name="images")
 
 class CreateCampaignRequest(BaseModel):
     name: str

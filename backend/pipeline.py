@@ -1,14 +1,14 @@
 """
 pipeline.py
 -----------
-The LangGraph pipeline that wires all four agents together.
+The LangGraph pipeline that wires all five agents together.
 
 Graph flow:
-  researcher → writer → evaluator → decision gate
-                  ↑                      ↓
-                fixer ←── score < 7.0 ───┘
-                                         ↓
-                          score ≥ 7.0 → save to Supabase
+  researcher → writer → image → evaluator → decision gate
+                  ↑                              ↓
+                fixer ←────── score < 7.0 ───────┘
+                                                  ↓
+                              score ≥ 7.0 ──→ save to DB
 """
 
 import json
@@ -24,6 +24,7 @@ from writer_agent import WriterAgent, WriterInput, CampaignBrief, GeneratedAd
 from evaluator_agent import EvaluatorAgent, AdContent, EvaluationResult
 from fixer_agent import FixerAgent, EvalSummary, FixerOutput
 from researcher_agent import ResearcherAgent
+from image_agent import ImageAgent, ImageInput, GeneratedImage
 
 load_dotenv()
 
@@ -46,6 +47,7 @@ class AdState(TypedDict):
     iteration: int
     max_iterations: int
     generated_ad: Optional[dict]
+    generated_image: Optional[dict]       # ImageAgent output
     evaluation: Optional[dict]
     fix: Optional[dict]
     approved: bool
@@ -60,6 +62,7 @@ writer = WriterAgent()
 evaluator = EvaluatorAgent()
 fixer = FixerAgent()
 researcher = ResearcherAgent()
+image_agent = ImageAgent()
 
 # ─── Nodes ────────────────────────────────────────────────────────────────────
 
@@ -83,10 +86,42 @@ def write_node(state: AdState) -> AdState:
         trace.update(output=ad.model_dump())
     return {**state, "generated_ad": ad.model_dump(), "iteration": iteration}
 
+
+def image_node(state: AdState) -> AdState:
+    """Generate an ad creative image using ImageAgent."""
+    ad = state["generated_ad"]
+    brief = state["brief"]
+    print(f"\n🎨 ImageAgent — generating creative")
+    trace = langfuse.trace(name="image_node", metadata={"iteration": state["iteration"]}) if langfuse else None
+
+    image_input = ImageInput(
+        primary_text=ad["primary_text"],
+        headline=ad["headline"],
+        audience=brief["audience"],
+        product=brief["product"],
+        goal=brief["goal"],
+        persona=brief.get("persona", "general"),
+    )
+
+    result = image_agent.generate(image_input)
+
+    if trace:
+        trace.update(output={"image_path": result.image_path, "model": result.model})
+
+    return {**state, "generated_image": result.model_dump()}
+
+
 def evaluate_node(state: AdState) -> AdState:
     iteration = state["iteration"]
     print(f"\n🔍 EvaluatorAgent — iteration {iteration}")
     trace = langfuse.trace(name="evaluate_node", metadata={"iteration": iteration}) if langfuse else None
+
+    # Build AdContent with optional image for visual evaluation
+    image_data = state.get("generated_image")
+    image_base64 = None
+    if image_data and image_data.get("image_path"):
+        image_base64 = image_agent.get_image_base64(image_data["image_path"])
+
     ad_content = AdContent(
         primary_text=state["generated_ad"]["primary_text"],
         headline=state["generated_ad"]["headline"],
@@ -95,11 +130,12 @@ def evaluate_node(state: AdState) -> AdState:
         audience=state["brief"]["audience"],
         product=state["brief"]["product"],
         goal=state["brief"]["goal"],
+        image_base64=image_base64,
     )
     result = evaluator.evaluate(ad_content)
     evaluator.print_result(ad_content, result)
-    all_evals = state.get("all_evaluations", [])
-    all_evals.append({
+
+    eval_record = {
         "iteration": iteration,
         "aggregate_score": result.aggregate_score,
         "clarity": result.clarity.score,
@@ -109,7 +145,16 @@ def evaluate_node(state: AdState) -> AdState:
         "emotional_resonance": result.emotional_resonance.score,
         "meets_threshold": result.meets_threshold,
         "weakest_dimension": result.weakest_dimension,
-    })
+    }
+    # Include visual scores if present
+    if result.visual_brand_consistency:
+        eval_record["visual_brand_consistency"] = result.visual_brand_consistency.score
+    if result.scroll_stopping_power:
+        eval_record["scroll_stopping_power"] = result.scroll_stopping_power.score
+
+    all_evals = state.get("all_evaluations", [])
+    all_evals.append(eval_record)
+
     if trace:
         trace.update(output=result.model_dump())
     return {**state, "evaluation": result.model_dump(), "all_evaluations": all_evals}
@@ -179,7 +224,9 @@ def _estimate_cost(state: AdState) -> float:
     eval_tokens = len(str(evaluation)) / 4
     gemini_cost = (writer_tokens / 1_000_000) * 0.30
     claude_cost = (eval_tokens / 1_000_000) * 15.00
-    return round(gemini_cost + claude_cost, 6)
+    # Add image generation cost estimate (Imagen 3 ~$0.04 per image)
+    image_cost = 0.04 if state.get("generated_image", {}).get("image_path") else 0.0
+    return round(gemini_cost + claude_cost + image_cost, 6)
 
 
 def _db_save_with_retry(operation, description: str, max_attempts: int = 3):
@@ -198,6 +245,15 @@ def save_node(state: AdState) -> AdState:
     db = get_db()
     print(f"\n💾 Saving approved ad...")
     try:
+        # Determine image path if available
+        image_url = ""
+        image_data = state.get("generated_image")
+        if image_data and image_data.get("image_path"):
+            # Store as relative URL served by FastAPI static files
+            import os as _os
+            filename = _os.path.basename(image_data["image_path"])
+            image_url = f"/images/{filename}" if filename else ""
+
         ad_result = _db_save_with_retry(
             lambda: db.insert_ad({
                 "campaign_id": state["campaign_id"],
@@ -207,33 +263,49 @@ def save_node(state: AdState) -> AdState:
                 "cta_button": state["generated_ad"]["cta_button"],
                 "iteration_number": state["iteration"],
                 "status": "approved",
+                "image_url": image_url,
             }),
-            "Supabase save (ad)",
+            "DB save (ad)",
         )
         ad_id = ad_result["id"]
+
+        eval_data = {
+            "ad_id": ad_id,
+            "clarity": state["evaluation"]["clarity"]["score"],
+            "value_proposition": state["evaluation"]["value_proposition"]["score"],
+            "cta_score": state["evaluation"]["cta_strength"]["score"],
+            "brand_voice": state["evaluation"]["brand_voice"]["score"],
+            "emotional_resonance": state["evaluation"]["emotional_resonance"]["score"],
+            "aggregate_score": state["evaluation"]["aggregate_score"],
+            "clarity_rationale": state["evaluation"]["clarity"]["rationale"],
+            "value_proposition_rationale": state["evaluation"]["value_proposition"]["rationale"],
+            "cta_rationale": state["evaluation"]["cta_strength"]["rationale"],
+            "brand_voice_rationale": state["evaluation"]["brand_voice"]["rationale"],
+            "emotional_resonance_rationale": state["evaluation"]["emotional_resonance"]["rationale"],
+            "clarity_confidence": state["evaluation"]["clarity"]["confidence"],
+            "value_proposition_confidence": state["evaluation"]["value_proposition"]["confidence"],
+            "cta_confidence": state["evaluation"]["cta_strength"]["confidence"],
+            "brand_voice_confidence": state["evaluation"]["brand_voice"]["confidence"],
+            "emotional_resonance_confidence": state["evaluation"]["emotional_resonance"]["confidence"],
+            "meets_threshold": state["evaluation"]["meets_threshold"],
+            "needs_human_review": state["evaluation"]["needs_human_review"],
+        }
+
+        # Add visual scores if present
+        visual_bc = state["evaluation"].get("visual_brand_consistency")
+        visual_ss = state["evaluation"].get("scroll_stopping_power")
+        if visual_bc:
+            eval_data["visual_brand_consistency"] = visual_bc["score"]
+            eval_data["visual_brand_consistency_rationale"] = visual_bc["rationale"]
+            eval_data["visual_brand_consistency_confidence"] = visual_bc["confidence"]
+        if visual_ss:
+            eval_data["scroll_stopping_power"] = visual_ss["score"]
+            eval_data["scroll_stopping_power_rationale"] = visual_ss["rationale"]
+            eval_data["scroll_stopping_power_confidence"] = visual_ss["confidence"]
+
         _db_save_with_retry(
-            lambda: db.insert_evaluation({
-                "ad_id": ad_id,
-                "clarity": state["evaluation"]["clarity"]["score"],
-                "value_proposition": state["evaluation"]["value_proposition"]["score"],
-                "cta_score": state["evaluation"]["cta_strength"]["score"],
-                "brand_voice": state["evaluation"]["brand_voice"]["score"],
-                "emotional_resonance": state["evaluation"]["emotional_resonance"]["score"],
-                "aggregate_score": state["evaluation"]["aggregate_score"],
-                "clarity_rationale": state["evaluation"]["clarity"]["rationale"],
-                "value_proposition_rationale": state["evaluation"]["value_proposition"]["rationale"],
-                "cta_rationale": state["evaluation"]["cta_strength"]["rationale"],
-                "brand_voice_rationale": state["evaluation"]["brand_voice"]["rationale"],
-                "emotional_resonance_rationale": state["evaluation"]["emotional_resonance"]["rationale"],
-                "clarity_confidence": state["evaluation"]["clarity"]["confidence"],
-                "value_proposition_confidence": state["evaluation"]["value_proposition"]["confidence"],
-                "cta_confidence": state["evaluation"]["cta_strength"]["confidence"],
-                "brand_voice_confidence": state["evaluation"]["brand_voice"]["confidence"],
-                "emotional_resonance_confidence": state["evaluation"]["emotional_resonance"]["confidence"],
-                "meets_threshold": state["evaluation"]["meets_threshold"],
-                "needs_human_review": state["evaluation"]["needs_human_review"],
-            }),
-            "Supabase save (evaluation)",
+            lambda: db.insert_evaluation(eval_data),
+            "DB save (evaluation)",
         )
         cost_usd = _estimate_cost(state)
         db.update_ad(ad_id, {"cost_usd": cost_usd})
@@ -247,6 +319,14 @@ def flag_node(state: AdState) -> AdState:
     db = get_db()
     print(f"\n⚠️  Flagging ad for human review...")
     try:
+        image_url = ""
+        image_data = state.get("generated_image")
+        if image_data and image_data.get("image_path"):
+            # Store as relative URL served by FastAPI static files
+            import os as _os
+            filename = _os.path.basename(image_data["image_path"])
+            image_url = f"/images/{filename}" if filename else ""
+
         ad_result = _db_save_with_retry(
             lambda: db.insert_ad({
                 "campaign_id": state["campaign_id"],
@@ -256,8 +336,9 @@ def flag_node(state: AdState) -> AdState:
                 "cta_button": state["generated_ad"]["cta_button"],
                 "iteration_number": state["iteration"],
                 "status": "flagged",
+                "image_url": image_url,
             }),
-            "Supabase save (flagged ad)",
+            "DB save (flagged ad)",
         )
         ad_id = ad_result["id"]
         cost_usd = _estimate_cost(state)
@@ -288,12 +369,14 @@ def should_fix_or_approve(state: AdState) -> str:
 def build_pipeline():
     graph = StateGraph(AdState)
     graph.add_node("write", write_node)
+    graph.add_node("generate_image", image_node)
     graph.add_node("evaluate", evaluate_node)
     graph.add_node("fix", fix_node)
     graph.add_node("save", save_node)
     graph.add_node("flag", flag_node)
     graph.set_entry_point("write")
-    graph.add_edge("write", "evaluate")
+    graph.add_edge("write", "generate_image")
+    graph.add_edge("generate_image", "evaluate")
     graph.add_edge("fix", "write")
     graph.add_edge("save", END)
     graph.add_edge("flag", END)
@@ -312,6 +395,7 @@ def run_pipeline(campaign_id: str, brief: CampaignBrief) -> AdState:
         "iteration": 1,
         "max_iterations": 3,
         "generated_ad": None,
+        "generated_image": None,
         "evaluation": None,
         "fix": None,
         "approved": False,
@@ -327,13 +411,13 @@ def run_pipeline(campaign_id: str, brief: CampaignBrief) -> AdState:
 if __name__ == "__main__":
     from progress_tracker import mark_complete
 
-    print("🧪 PIPELINE SMOKE TEST")
-    print("Running full generate → evaluate → fix → save loop...\n")
+    print("🧪 PIPELINE SMOKE TEST (v2 — with image generation)")
+    print("Running full write → image → evaluate → fix → save loop...\n")
 
     db = get_db()
     try:
         campaign = db.insert_campaign({
-            "name": "Pipeline Smoke Test",
+            "name": "Pipeline v2 Smoke Test — Image Generation",
             "audience": "parents of high school juniors preparing for SAT",
             "product": "1-on-1 SAT tutoring",
             "goal": "conversion",
@@ -351,8 +435,9 @@ if __name__ == "__main__":
         product="1-on-1 SAT tutoring",
         goal="conversion",
         tone="urgent, empathetic, outcome-focused",
-        key_benefit="personalized learning matched to your child's gaps",
-        proof_point="students improve an average of 360 points in 8 weeks"
+        key_benefit="100 points/month at 2 sessions/week + 20 min/day practice",
+        proof_point="our students improve 10x more than self-study and 2.6x more than group classes",
+        persona="suburban_optimizer"
     )
 
     final_state = run_pipeline(campaign_id, brief)
@@ -365,6 +450,8 @@ if __name__ == "__main__":
     print(f"  Iterations:    {final_state['iteration']}")
     print(f"  Final ad ID:   {final_state['final_ad_id']}")
     print(f"  Score history: {[e['aggregate_score'] for e in final_state['all_evaluations']]}")
+    if final_state.get('generated_image', {}).get('image_path'):
+        print(f"  Image:         {final_state['generated_image']['image_path']}")
     print("="*60)
 
     db.update_campaign_status(campaign_id, "completed")
@@ -372,4 +459,5 @@ if __name__ == "__main__":
 
     mark_complete("langgraph_wired")
     mark_complete("max_iterations_guard")
-    print("\n✅ PIPELINE SMOKE TEST PASSED!")
+    print("✅ Image generation v2 integrated!")
+    print("\n✅ PIPELINE SMOKE TEST PASSED (v2 with image generation)!")
