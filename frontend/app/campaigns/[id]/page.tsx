@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import RadarChart from '../../components/RadarChart';
 import ScoreRing from '../../components/ScoreRing';
+import { ImagePlaceholder } from '../../components/ImagePlaceholder';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 /* ScoreRing imported from ../../components/ScoreRing */
@@ -52,12 +53,10 @@ function FacebookAdPreview({ ad }: { ad: any }) {
         {ad.primary_text}
       </div>
 
-      {/* Image — full render */}
-      {hasImage && (
-        <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-          <AdImage imageUrl={ad.image_url} />
-        </div>
-      )}
+      {/* Image — full render or placeholder */}
+      <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        {hasImage ? <AdImage imageUrl={ad.image_url} /> : <ImagePlaceholder />}
+      </div>
 
       {/* Below-image bar */}
       <div style={{
@@ -130,12 +129,8 @@ function InstagramAdPreview({ ad }: { ad: any }) {
         <div style={{ color: 'var(--muted)', fontSize: '1rem' }}>···</div>
       </div>
 
-      {/* Image — full render */}
-      {hasImage && (
-        <div>
-          <AdImage imageUrl={ad.image_url} />
-        </div>
-      )}
+      {/* Image — full render or placeholder */}
+      <div>{hasImage ? <AdImage imageUrl={ad.image_url} /> : <ImagePlaceholder />}</div>
 
       {/* Action icons */}
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px' }}>
@@ -241,7 +236,7 @@ export default function CampaignDetail() {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: ev ? '1fr 1fr 1fr' : '1fr 1fr',
-                gap: '1.25rem',
+                gap: '1.5rem',
                 alignItems: 'stretch',
               }}>
                 {/* ── Facebook ── */}
@@ -265,7 +260,7 @@ export default function CampaignDetail() {
                         <div style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {hasVisual ? '7-Dimension Score' : '5-Dimension Score'}
                         </div>
-                        <div style={{ fontSize: '0.9rem', color: ev.meets_threshold ? '#34d399' : '#f97316', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.9rem', color: ev.meets_threshold ? 'var(--green-text)' : 'var(--amber-text)', fontWeight: 600 }}>
                           {ev.meets_threshold ? '✓ Passes threshold' : '✗ Below threshold'}
                         </div>
                       </div>

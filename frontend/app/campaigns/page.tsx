@@ -223,7 +223,7 @@ export default function Campaigns() {
 
       {/* ─── Campaign Card View ─── */}
       {view === 'campaigns' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
           {filteredCampaigns.map(c => {
             const cats = getCategories(c.product);
             const persona = getPersona(c.name);
@@ -269,7 +269,7 @@ export default function Campaigns() {
 
       {/* ─── All Ads Grid View ─── */}
       {view === 'ads' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
           {filteredAds.map((ad: any) => {
             const ev = ad.evaluation;
             const cats = getCategories(ad.campaign_product || '');

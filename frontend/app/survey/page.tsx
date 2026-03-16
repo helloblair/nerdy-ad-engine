@@ -69,7 +69,7 @@ export default function Survey() {
           <span style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '6px 16px', fontSize: '0.875rem', color: 'var(--accent)', fontWeight: 500, display: 'inline-block' }}>{ad.cta_button}</span>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
         {[
           { rating: 'good', label: '👍 Yes', bgVar: 'var(--green-bg)', borderVar: 'var(--green-border)', textVar: 'var(--green-text)' },
           { rating: 'unsure', label: '🤷 Maybe', bgVar: 'var(--amber-bg)', borderVar: 'var(--amber-border)', textVar: 'var(--amber-text)' },

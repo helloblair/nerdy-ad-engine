@@ -82,7 +82,7 @@ export default function Insights() {
                 <InfoTip text="How to read this: High False Positives = AI too lenient. High False Negatives = AI too strict. Target is high precision — when AI approves, humans should agree." />
               </div>
               <div className="card">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                   {[
                     { label: 'True Positive', sublabel: 'Human ✓ AI ✓', value: m.true_positive ?? 0, bgVar: 'var(--green-bg)', borderVar: 'var(--green-border)', colorVar: 'var(--green-text)' },
                     { label: 'False Positive', sublabel: 'Human ✗ AI ✓', value: m.false_positive ?? 0, bgVar: 'var(--red-bg)', borderVar: 'var(--red-border)', colorVar: 'var(--red-text)' },
@@ -151,7 +151,7 @@ export default function Insights() {
               </div>
 
               {/* Summary stats row */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
                 {[
                   { label: 'ITER 1 AVG', value: iterData.summary.avg_score_iter1?.toFixed(1) ?? '—', gradient: 'linear-gradient(135deg, #f06c6c, #ec4899)', color: '#f06c6c' },
                   { label: 'FINAL AVG', value: iterData.summary.avg_score_iter3?.toFixed(1) ?? '—', gradient: 'linear-gradient(135deg, #16a34a, #00d4cf)', color: '#16a34a' },
@@ -253,7 +253,7 @@ export default function Insights() {
                         </span>
                       )}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(ads.length, 3)}, 1fr)`, gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(ads.length, 3)}, 1fr)`, gap: '1.5rem' }}>
                       {ads.map((ad: any, ai: number) => {
                         const iters = ad.iterations || [];
                         const firstIter = iters[0];

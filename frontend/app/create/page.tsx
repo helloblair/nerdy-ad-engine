@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import RadarChart from '../components/RadarChart';
 import ScoreRing from '../components/ScoreRing';
+import { ImagePlaceholder } from '../components/ImagePlaceholder';
 import { useEvalConfig } from '../hooks/useEvalConfig';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -41,7 +42,9 @@ function FacebookAdPreview({ ad }: { ad: any }) {
         <div style={{ color: 'var(--muted)', fontSize: '1rem' }}>···</div>
       </div>
       <div style={{ padding: '0 14px 10px', fontSize: '0.8rem', lineHeight: 1.65, color: 'var(--text)' }}>{ad.primary_text}</div>
-      {hasImage && <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}><AdImage imageUrl={ad.image_url} /></div>}
+      <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        {hasImage ? <AdImage imageUrl={ad.image_url} /> : <ImagePlaceholder />}
+      </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--surface2)' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '0.6rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>varsitytutors.com</div>
@@ -72,7 +75,7 @@ function InstagramAdPreview({ ad }: { ad: any }) {
         </div>
         <div style={{ color: 'var(--muted)', fontSize: '1rem' }}>···</div>
       </div>
-      {hasImage && <div><AdImage imageUrl={ad.image_url} /></div>}
+      <div>{hasImage ? <AdImage imageUrl={ad.image_url} /> : <ImagePlaceholder />}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px' }}>
         <div style={{ display: 'flex', gap: '14px', fontSize: '1.1rem' }}><span>♡</span><span>💬</span><span>➤</span></div>
         <span style={{ fontSize: '1.1rem' }}>🔖</span>
@@ -476,7 +479,7 @@ export default function CreatePage() {
         </div>
 
         {/* Iteration cards */}
-        <div style={{ display: 'grid', gap: '1rem' }}>
+        <div style={{ display: 'grid', gap: '1.5rem' }}>
           {ads.map((ad: any, i: number) => {
             const ev = ad.evaluation;
             return (
@@ -488,7 +491,7 @@ export default function CreatePage() {
                       <span className={`badge badge-${ad.status}`}>{ad.status}</span>
                       <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>iteration {ad.iteration_number}</span>
                       {ev && (
-                        <span style={{ fontSize: '0.7rem', color: ev.meets_threshold ? '#34d399' : '#f97316', fontWeight: 600 }}>
+                        <span style={{ fontSize: '0.7rem', color: ev.meets_threshold ? 'var(--green-text)' : 'var(--amber-text)', fontWeight: 600 }}>
                           {ev.meets_threshold ? '✓ passes' : '✗ below threshold'}
                         </span>
                       )}
@@ -575,7 +578,7 @@ export default function CreatePage() {
                 {ev?.cost_usd && <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>${ev.cost_usd?.toFixed(4) || ad.cost_usd?.toFixed(4)}</span>}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: ev ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1.25rem', alignItems: 'stretch' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: ev ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
                 <FacebookAdPreview ad={ad} />
                 <InstagramAdPreview ad={ad} />
 
@@ -588,7 +591,7 @@ export default function CreatePage() {
                         <div style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {hasVisual ? '7-Dimension Score' : '5-Dimension Score'}
                         </div>
-                        <div style={{ fontSize: '0.9rem', color: ev.meets_threshold ? '#34d399' : '#f97316', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.9rem', color: ev.meets_threshold ? 'var(--green-text)' : 'var(--amber-text)', fontWeight: 600 }}>
                           {ev.meets_threshold ? '✓ Passes threshold' : '✗ Below threshold'}
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { InfoTip } from './components/InfoTip';
+import { ImagePlaceholder } from './components/ImagePlaceholder';
 import { useEvalConfig, dimLabel } from './hooks/useEvalConfig';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -95,8 +96,8 @@ export default function Dashboard() {
         {[
           { label: 'TOTAL ADS', value: summary?.total_ads ?? 0, gradient: gradients[0] },
           { label: 'AVG SCORE', value: summary?.overall_avg_score?.toFixed(1) ?? '—', gradient: gradients[1] },
-          { label: 'PASS RATE', value: `${summary?.pass_rate ?? 0}%`, gradient: gradients[2] },
-          { label: 'CAMPAIGNS', value: campaigns.length, gradient: gradients[3] },
+          { label: 'PASS RATE', value: `${summary?.pass_rate ?? 0}%`, gradient: gradients[3] },
+          { label: 'CAMPAIGNS', value: campaigns.length, gradient: gradients[2] },
         ].map(({ label, value, gradient }) => (
           <div key={label}>
             <div style={{ height: '3px', borderRadius: '2px', background: gradient, marginBottom: '12px' }} />
@@ -109,35 +110,33 @@ export default function Dashboard() {
         ))}
       </div>
       {/* Quality Ratchet Indicator */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '2rem',
-        padding: '10px 16px', borderRadius: '10px',
-        background: evalConfig.ratchet_active ? 'var(--green-bg)' : 'var(--surface2)',
-        border: `1px solid ${evalConfig.ratchet_active ? 'var(--green-border)' : 'var(--border)'}`,
-      }}>
-        <span style={{ fontSize: '1rem' }}>{evalConfig.ratchet_active ? '📈' : '📊'}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="mono" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', letterSpacing: '0.05em' }}>QUALITY BAR</span>
-            <InfoTip text={STAT_INFO['QUALITY BAR']} />
+      <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              {evalConfig.ratchet_active && <span className="live-dot" />}
+              <span className="mono" style={{ fontSize: '0.875rem', color: 'var(--muted)', letterSpacing: '0.05em', fontWeight: 600 }}>QUALITY BAR</span>
+              <InfoTip text={STAT_INFO['QUALITY BAR']} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              <span className="mono" style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text)' }}>{evalConfig.threshold.toFixed(1)}</span>
+              {evalConfig.ratchet_active && evalConfig.threshold > evalConfig.floor && (
+                <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600 }}>
+                  +{(evalConfig.threshold - evalConfig.floor).toFixed(1)} from {evalConfig.floor.toFixed(1)}
+                </span>
+              )}
+              {!evalConfig.ratchet_active && (
+                <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                  activates after {10 - evalConfig.ratchet_sample_size} more approved ads
+                </span>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
-            <span className="mono" style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)' }}>{evalConfig.threshold.toFixed(1)}</span>
-            {evalConfig.ratchet_active && evalConfig.threshold > evalConfig.floor && (
-              <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--green-text)', fontWeight: 600 }}>
-                ↑ {(evalConfig.threshold - evalConfig.floor).toFixed(1)} from {evalConfig.floor.toFixed(1)} floor
-              </span>
-            )}
-            {!evalConfig.ratchet_active && (
-              <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
-                ratchet activates after {10 - evalConfig.ratchet_sample_size} more approved ads
-              </span>
-            )}
-          </div>
+          <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--muted)', textAlign: 'right' }}>
+            {evalConfig.ratchet_sample_size} approved ads
+          </span>
         </div>
-        <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--muted)', textAlign: 'right' }}>
-          {evalConfig.ratchet_sample_size} approved ads
-        </span>
+        <ScoreBar score={evalConfig.threshold} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
         <div>
@@ -186,7 +185,7 @@ export default function Dashboard() {
           {recentAds.length > 0 && (
             <div>
               <h2 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--muted)', letterSpacing: '0.05em' }}>RECENT ADS</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
                 {recentAds.map((ad: any) => {
                   const overallScore = ad.evaluation?.aggregate_score;
                   const imageUrl = ad.image_url ? (ad.image_url.startsWith('http') ? ad.image_url : `${API}${ad.image_url}`) : null;
@@ -197,11 +196,14 @@ export default function Dashboard() {
                           {imageUrl ? (
                             <img src={imageUrl} alt={ad.headline || 'Ad creative'} style={{ width: '100%', height: 'auto', display: 'block' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
-                            <span className="mono rainbow-text" style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.05em' }}>AD CREATIVE</span>
+                            <ImagePlaceholder compact />
                           )}
                         </div>
                         <div style={{ padding: '0.75rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.headline || 'Untitled Ad'}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{ad.headline || 'Untitled Ad'}</div>
+                            <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--muted)', flexShrink: 0 }}>v{ad.iteration_number ?? 1}</span>
+                          </div>
                           {ad.campaign_name && <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.campaign_name}</div>}
                           <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                             {overallScore != null ? (
