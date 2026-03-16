@@ -52,7 +52,7 @@ export default function Survey() {
           <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Ad {current + 1} of {ads.length}</span>
           <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>{Math.round(progress)}%</span>
         </div>
-        <div style={{ height: '6px', background: 'var(--surface2)', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{ height: '6px', background: 'var(--surface2)', borderRadius: '3px', overflow: 'hidden', outline: '1px solid var(--border)', outlineOffset: '1px' }}>
           <div className="progress-rainbow" style={{ width: `${progress}%`, transition: 'width 0.3s ease' }} />
         </div>
       </div>

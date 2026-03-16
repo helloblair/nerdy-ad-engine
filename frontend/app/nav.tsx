@@ -9,7 +9,7 @@ export function Nav() {
         <img className="nav-logo" src="/nerdy_x_varsitytutors_logo.png" alt="Nerdy x Varsity Tutors" />
       </a>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {[{ href: '/', label: 'Dashboard' }, { href: '/campaigns', label: 'Campaigns' }, { href: '/survey', label: 'Survey' }, { href: '/insights', label: 'Insights' }].map(({ href, label }) => (
+        {[{ href: '/', label: 'Dashboard' }, { href: '/campaigns', label: 'Campaigns' }, { href: '/create', label: 'Create' }, { href: '/survey', label: 'Survey' }, { href: '/insights', label: 'Insights' }].map(({ href, label }) => (
           <a key={href} href={href} className="nav-btn">{label}</a>
         ))}
         <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 4px' }} />
