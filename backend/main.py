@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from pipeline import run_pipeline
 from writer_agent import CampaignBrief
 from ab_variant_generator import generate_ab_variants, CREATIVE_APPROACHES
+from evaluator_agent import EvaluatorAgent
 from db import get_db
 
 load_dotenv()
@@ -58,6 +59,7 @@ class CreateCampaignRequest(BaseModel):
     key_benefit: Optional[str] = None
     proof_point: Optional[str] = None
     num_ads: Optional[int] = 1
+    persona: Optional[str] = "general"
 
 def run_campaign_pipeline(campaign_id: str, brief: CampaignBrief, num_ads: int):
     db = get_db()
@@ -75,6 +77,40 @@ def run_campaign_pipeline(campaign_id: str, brief: CampaignBrief, num_ads: int):
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "nerdy-ad-engine"}
+
+# Mapping from evaluator dimension names → DB column names
+# (cta_strength is stored as cta_score in the DB schema)
+EVAL_TO_DB_DIM = {
+    "clarity": "clarity",
+    "value_proposition": "value_proposition",
+    "cta_strength": "cta_score",
+    "brand_voice": "brand_voice",
+    "emotional_resonance": "emotional_resonance",
+    "visual_brand_consistency": "visual_brand_consistency",
+    "scroll_stopping_power": "scroll_stopping_power",
+}
+DB_TEXT_DIMS = [EVAL_TO_DB_DIM[d] for d in EvaluatorAgent.TEXT_WEIGHTS]
+DB_ALL_DIMS = [EVAL_TO_DB_DIM[d] for d in EvaluatorAgent.FULL_WEIGHTS]
+
+@app.get("/evaluator/config")
+def evaluator_config():
+    """Expose evaluator configuration so frontend stays in sync."""
+    from quality_ratchet import get_current_threshold
+    ratchet = get_current_threshold(get_db())
+    return {
+        "threshold": ratchet["threshold"],
+        "floor": ratchet["floor"],
+        "ratchet_active": ratchet["ratchet_active"],
+        "ratchet_sample_size": ratchet["sample_size"],
+        "ratchet_headroom": ratchet["headroom"],
+        "text_weights": EvaluatorAgent.TEXT_WEIGHTS,
+        "full_weights": EvaluatorAgent.FULL_WEIGHTS,
+        "text_dimensions": list(EvaluatorAgent.TEXT_WEIGHTS.keys()),
+        "all_dimensions": list(EvaluatorAgent.FULL_WEIGHTS.keys()),
+        "db_text_dimensions": DB_TEXT_DIMS,
+        "db_all_dimensions": DB_ALL_DIMS,
+        "max_iterations": 3,
+    }
 
 @app.post("/campaigns", status_code=202)
 def create_campaign(req: CreateCampaignRequest, background_tasks: BackgroundTasks):
@@ -103,7 +139,8 @@ def create_campaign(req: CreateCampaignRequest, background_tasks: BackgroundTask
             )
 
         brief = CampaignBrief(audience=req.audience, product=req.product, goal=req.goal,
-                              tone=req.tone, key_benefit=req.key_benefit, proof_point=req.proof_point)
+                              tone=req.tone, key_benefit=req.key_benefit, proof_point=req.proof_point,
+                              persona=req.persona)
         background_tasks.add_task(run_campaign_pipeline, campaign_id, brief, req.num_ads)
         return {"campaign_id": campaign_id, "status": "pending",
                 "message": f"Pipeline started — generating {req.num_ads} ad(s). Poll GET /campaigns/{campaign_id} for status."}
@@ -119,8 +156,9 @@ def list_campaigns():
         campaigns = db.list_campaigns()
         results = []
         for c in campaigns:
-            ad_count = db.count_ads_for_campaign(c["id"])
-            results.append({**c, "ad_count": ad_count})
+            ads = db.list_ads_for_campaign(c["id"])
+            thumbnail = next((a.get("image_url") for a in ads if a.get("image_url")), None)
+            results.append({**c, "ad_count": len(ads), "thumbnail": thumbnail})
         return {"campaigns": results, "total": len(results)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -140,6 +178,45 @@ def get_campaign(campaign_id: str):
         return {"campaign": campaign, "ads": ads_with_evals, "ad_count": len(ads_with_evals)}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ads")
+def list_all_ads():
+    db = get_db()
+    try:
+        ads = db.list_all_ads()
+        campaign_cache: dict[str, dict] = {}
+        results = []
+        for ad in ads:
+            cid = ad.get("campaign_id", "")
+            if cid not in campaign_cache:
+                campaign_cache[cid] = db.get_campaign(cid) or {}
+            campaign = campaign_cache[cid]
+            ev = db.get_evaluation_for_ad(ad["id"])
+            results.append({
+                **ad,
+                "evaluation": ev,
+                "campaign_name": campaign.get("name"),
+                "campaign_product": campaign.get("product"),
+                "campaign_audience": campaign.get("audience"),
+                "campaign_goal": campaign.get("goal"),
+            })
+        return {"ads": results, "total": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ads/recent")
+def get_recent_ads(limit: int = 6):
+    db = get_db()
+    try:
+        ads = db.list_all_ads()[:limit]
+        results = []
+        for ad in ads:
+            ev = db.get_evaluation_for_ad(ad["id"])
+            campaign = db.get_campaign(ad.get("campaign_id", ""))
+            results.append({**ad, "evaluation": ev, "campaign_name": campaign.get("name") if campaign else None})
+        return {"ads": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -194,11 +271,14 @@ def get_trends():
             all_scores.append(score)
             if campaign_id not in by_campaign:
                 by_campaign[campaign_id] = {"campaign_id": campaign_id, "scores": [],
-                    "dims": {"clarity": [], "value_proposition": [], "cta_score": [], "brand_voice": [], "emotional_resonance": []},
+                    "dims": {d: [] for d in DB_ALL_DIMS},
                     "approved_count": 0, "flagged_count": 0}
             by_campaign[campaign_id]["scores"].append(score)
-            for dim in ["clarity", "value_proposition", "cta_score", "brand_voice", "emotional_resonance"]:
-                by_campaign[campaign_id]["dims"][dim].append(ev.get(dim, 0))
+            for dim in DB_ALL_DIMS:
+                val = ev.get(dim)
+                if val is None or val == 0:
+                    continue
+                by_campaign[campaign_id]["dims"][dim].append(val)
             if ad.get("status") == "approved":
                 by_campaign[campaign_id]["approved_count"] += 1
             elif ad.get("status") == "flagged":
@@ -210,7 +290,7 @@ def get_trends():
                   for cid, d in by_campaign.items()]
         summary = {"total_ads": len(all_scores),
                    "overall_avg_score": round(sum(all_scores) / len(all_scores), 2) if all_scores else 0,
-                   "pass_rate": round(sum(1 for s in all_scores if s >= 7.0) / len(all_scores) * 100, 1) if all_scores else 0}
+                   "pass_rate": round(sum(1 for s in all_scores if s >= EvaluatorAgent.THRESHOLD) / len(all_scores) * 100, 1) if all_scores else 0}
         return {"trends": trends, "summary": summary}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -249,13 +329,15 @@ def get_confusion_matrix():
             elif human_good and not ai_approved: fn += 1
             else: tn += 1
         total = tp + fp + tn + fn
+        unique_ads = len({r["ad_id"] for r in ratings})
         precision = round(tp / (tp + fp), 3) if (tp + fp) > 0 else 0
         recall = round(tp / (tp + fn), 3) if (tp + fn) > 0 else 0
         accuracy = round((tp + tn) / total, 3) if total > 0 else 0
         return {
             "matrix": {"true_positive": tp, "false_positive": fp, "true_negative": tn, "false_negative": fn},
             "metrics": {"precision": precision, "recall": recall, "accuracy": accuracy},
-            "total_ratings": total
+            "total_ratings": total,
+            "unique_ads_rated": unique_ads
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -356,7 +438,7 @@ def _build_report_data() -> dict:
             "dimension_averages": {}, "quality_trajectory": [], "per_ad": [],
         }
 
-    dims = ["clarity", "value_proposition", "cta_score", "brand_voice", "emotional_resonance"]
+    dims = DB_ALL_DIMS
     all_scores = []
     dim_totals: dict[str, list[float]] = {d: [] for d in dims}
     by_iteration: dict[int, list[float]] = {}
@@ -371,20 +453,19 @@ def _build_report_data() -> dict:
         iteration = ad.get("iteration_number", 1)
         by_iteration.setdefault(iteration, []).append(score)
         for d in dims:
-            dim_totals[d].append(ev.get(d, 0))
-        per_ad.append({
+            val = ev.get(d)
+            if val is not None and val != 0:
+                dim_totals[d].append(val)
+        ad_row = {
             "ad_id": ev.get("ad_id", ""),
             "headline": ad.get("headline", ""),
             "campaign_name": campaign_names.get(ad.get("campaign_id", ""), ""),
             "iteration_number": iteration,
-            "clarity": ev.get("clarity", 0),
-            "value_proposition": ev.get("value_proposition", 0),
-            "cta_score": ev.get("cta_score", 0),
-            "brand_voice": ev.get("brand_voice", 0),
-            "emotional_resonance": ev.get("emotional_resonance", 0),
+            **{d: ev.get(d, 0) if d in DB_TEXT_DIMS else ev.get(d) for d in dims},
             "aggregate_score": score,
-            "passed_threshold": score >= 7.0,
-        })
+            "passed_threshold": score >= EvaluatorAgent.THRESHOLD,
+        }
+        per_ad.append(ad_row)
 
     avg = lambda lst: round(sum(lst) / len(lst), 2) if lst else 0
     quality_trajectory = sorted(
@@ -395,7 +476,7 @@ def _build_report_data() -> dict:
     return {
         "total_ads": len(all_scores),
         "avg_score": avg(all_scores),
-        "pass_rate": round(sum(1 for s in all_scores if s >= 7.0) / len(all_scores) * 100, 1),
+        "pass_rate": round(sum(1 for s in all_scores if s >= EvaluatorAgent.THRESHOLD) / len(all_scores) * 100, 1),
         "dimension_averages": {d: avg(dim_totals[d]) for d in dims},
         "quality_trajectory": quality_trajectory,
         "per_ad": per_ad,
@@ -414,8 +495,7 @@ def export_csv():
         data = _build_report_data()
         output = io.StringIO()
         cols = ["ad_id", "headline", "campaign_name", "iteration_number",
-                "clarity", "value_proposition", "cta_score", "brand_voice",
-                "emotional_resonance", "aggregate_score", "passed_threshold"]
+                *DB_ALL_DIMS, "aggregate_score", "passed_threshold"]
         writer = csv.DictWriter(output, fieldnames=cols)
         writer.writeheader()
         for row in data["per_ad"]:
