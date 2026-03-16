@@ -73,8 +73,10 @@ def test_aggregate_is_weighted_average(mock_cls, good_ad_content):
     evaluator = EvaluatorAgent()
     result = evaluator.evaluate(good_ad_content)
 
+    w = EvaluatorAgent.TEXT_WEIGHTS
     expected = round(
-        9.0 * 0.20 + 8.0 * 0.25 + 7.0 * 0.20 + 6.0 * 0.20 + 5.0 * 0.15, 1
+        9.0 * w["clarity"] + 8.0 * w["value_proposition"] + 7.0 * w["cta_strength"]
+        + 6.0 * w["brand_voice"] + 5.0 * w["emotional_resonance"], 1
     )
     assert result.aggregate_score == expected
 

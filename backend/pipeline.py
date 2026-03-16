@@ -355,13 +355,14 @@ def should_fix_or_approve(state: AdState) -> str:
     eval_data = state["evaluation"]
     iteration = state["iteration"]
     max_iter = state.get("max_iterations", 3)
+    threshold = evaluator.active_threshold
     if eval_data["meets_threshold"]:
-        print(f"\n✅ Score {eval_data['aggregate_score']:.1f} ≥ 7.0 — APPROVED!")
+        print(f"\n✅ Score {eval_data['aggregate_score']:.1f} ≥ {threshold} — APPROVED!")
         return "approve"
     if iteration >= max_iter:
         print(f"\n⚠️  Iteration {iteration} = max {max_iter} — ESCALATING")
         return "escalate"
-    print(f"\n🔄 Score {eval_data['aggregate_score']:.1f} < 7.0 — fixing iteration {iteration + 1}")
+    print(f"\n🔄 Score {eval_data['aggregate_score']:.1f} < {threshold} — fixing iteration {iteration + 1}")
     return "fix"
 
 # ─── Graph ────────────────────────────────────────────────────────────────────
@@ -388,6 +389,13 @@ def build_pipeline():
     return graph.compile()
 
 def run_pipeline(campaign_id: str, brief: CampaignBrief) -> AdState:
+    # Apply quality ratchet — threshold only goes up
+    from quality_ratchet import get_current_threshold
+    ratchet = get_current_threshold(get_db())
+    if ratchet["ratchet_active"]:
+        evaluator.set_dynamic_threshold(ratchet["threshold"])
+        print(f"📈 Quality ratchet active — threshold: {ratchet['threshold']} "
+              f"(floor: {ratchet['floor']}, sample: {ratchet['sample_size']} ads)")
     pipeline = build_pipeline()
     initial_state: AdState = {
         "campaign_id": campaign_id,

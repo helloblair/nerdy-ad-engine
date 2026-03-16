@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from db import get_db
+from evaluator_agent import EvaluatorAgent
 from pipeline import (
     build_pipeline,
     AdState,
@@ -111,11 +112,9 @@ def run_single_ad(campaign_id: str, brief: CampaignBrief, ad_number: int) -> dic
             "weakest_dimension": ev.get("weakest_dimension", ""),
             "fix_applied": fix_applied,
             "dimension_scores": {
-                "clarity": round(ev.get("clarity", 0), 1),
-                "value_proposition": round(ev.get("value_proposition", 0), 1),
-                "cta_strength": round(ev.get("cta_strength", 0), 1),
-                "brand_voice": round(ev.get("brand_voice", 0), 1),
-                "emotional_resonance": round(ev.get("emotional_resonance", 0), 1),
+                dim: round(ev.get(dim, 0), 1)
+                for dim in EvaluatorAgent.FULL_WEIGHTS
+                if ev.get(dim) is not None and ev.get(dim) != 0
             },
         })
 
@@ -127,7 +126,7 @@ def run_single_ad(campaign_id: str, brief: CampaignBrief, ad_number: int) -> dic
         "iterations": iterations,
         "total_lift": round(final_score - first_score, 1),
         "final_score": final_score,
-        "passed_threshold": final_score >= 7.0,
+        "passed_threshold": final_score >= EvaluatorAgent.THRESHOLD,
     }
 
 

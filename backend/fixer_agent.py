@@ -20,6 +20,7 @@ from typing import Optional
 from anthropic import Anthropic
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from evaluator_agent import EvaluatorAgent
 
 load_dotenv()
 
@@ -93,11 +94,12 @@ class FixerAgent:
             "brand_voice": eval.brand_voice,
             "emotional_resonance": eval.emotional_resonance,
         }
-        # Preserve anything scoring 7.5+
-        strong = [dim for dim, score in scores.items() if score >= 7.5]
+        # Preserve anything scoring above threshold + 0.5
+        strong_cutoff = EvaluatorAgent.THRESHOLD + 0.5
+        strong = [dim for dim, score in scores.items() if score >= strong_cutoff]
         if not strong:
-            return "No elements scored above 7.5 — full rewrite is acceptable."
-        return f"Keep these strong elements unchanged: {', '.join(strong)} (all scored 7.5+)"
+            return f"No elements scored above {strong_cutoff} — full rewrite is acceptable."
+        return f"Keep these strong elements unchanged: {', '.join(strong)} (all scored {strong_cutoff}+)"
 
     def generate_fix(self, eval: EvalSummary) -> FixerOutput:
         """
