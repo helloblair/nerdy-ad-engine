@@ -48,6 +48,20 @@ CREATE TABLE evaluations (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Competitor ads table (scraped from Meta Ad Library)
+CREATE TABLE competitor_ads (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  competitor TEXT NOT NULL,
+  primary_text TEXT,
+  headline TEXT,
+  cta_button TEXT,
+  platforms TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  start_date TEXT,
+  scraped_date TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Iterations table (tracks improvement over cycles)
 CREATE TABLE iterations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

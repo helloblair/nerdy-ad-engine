@@ -10,3 +10,5 @@ python-dotenv
 pydantic
 supabase
 pytest
+playwright
+python-dateutil

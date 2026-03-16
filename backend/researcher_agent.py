@@ -30,6 +30,15 @@ class ReferencePattern(BaseModel):
     example: str
     strength: str          # "high" | "medium"
 
+class CompetitorInsight(BaseModel):
+    """A single insight extracted from a competitor's ad."""
+    competitor: str
+    primary_text: str
+    headline: str
+    cta_button: str
+    is_active: bool = True
+    days_active: Optional[int] = None
+
 class ResearchContext(BaseModel):
     """
     Distilled creative intelligence from reference ads.
@@ -40,6 +49,8 @@ class ResearchContext(BaseModel):
     proof_points_available: list[str]
     avoid: list[str]
     winning_example: str   # Best headline from reference set
+    competitor_insights: list[CompetitorInsight] = []
+    competitor_names: list[str] = []
 
 
 # ─── Researcher Agent ─────────────────────────────────────────────────────────
@@ -65,6 +76,7 @@ class ResearcherAgent:
             # Walk up from backend/ to find reference_ads/
             base = Path(__file__).parent.parent
             self.reference_path = base / "reference_ads" / "varsity_tutors.json"
+        self.competitors_dir = self.reference_path.parent / "competitors"
 
     def load_reference_ads(self) -> dict:
         """Load and parse the reference ads JSON."""
@@ -75,6 +87,30 @@ class ResearcherAgent:
             )
         with open(self.reference_path) as f:
             return json.load(f)
+
+    def load_competitor_ads(self) -> list[dict]:
+        """
+        Load competitor ad data from reference_ads/competitors/*.json.
+        Returns an empty list if the directory doesn't exist or has no files.
+        This is intentionally non-fatal — competitor data is supplementary.
+        """
+        if not self.competitors_dir.exists():
+            return []
+
+        all_ads = []
+        for filepath in sorted(self.competitors_dir.glob("*.json")):
+            try:
+                with open(filepath) as f:
+                    data = json.load(f)
+                competitor_key = data.get("competitor", filepath.stem)
+                for ad in data.get("ads", []):
+                    ad["competitor"] = competitor_key
+                    all_ads.append(ad)
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"⚠ Skipping malformed competitor file {filepath.name}: {e}")
+                continue
+
+        return all_ads
 
     def extract_context(self) -> ResearchContext:
         """
@@ -117,6 +153,35 @@ class ResearcherAgent:
         best_ad = max(ads, key=lambda a: a.get("quality_score", 0))
         winning_example = best_ad.get("primary_text", best_ad.get("headline", ""))
 
+        # Load competitor intelligence (optional, non-fatal)
+        # Only include ads that are ACTIVE and have been running 30+ days.
+        # Longevity is the best public proxy for ad performance — if a
+        # competitor keeps paying to run it, it's working.
+        MIN_DAYS_ACTIVE = 30
+        competitor_ads = self.load_competitor_ads()
+        competitor_insights = []
+        competitor_names = set()
+        for cad in competitor_ads:
+            if not cad.get("is_active", False):
+                continue
+            days = cad.get("days_active")
+            if days is not None and days < MIN_DAYS_ACTIVE:
+                continue
+            competitor_names.add(cad.get("competitor", "unknown"))
+            competitor_insights.append(CompetitorInsight(
+                competitor=cad.get("competitor", "unknown"),
+                primary_text=cad.get("primary_text", ""),
+                headline=cad.get("headline", ""),
+                cta_button=cad.get("cta_button", ""),
+                is_active=True,
+                days_active=days,
+            ))
+        # Sort by longevity — longest-running first
+        competitor_insights.sort(
+            key=lambda ci: ci.days_active if ci.days_active is not None else 0,
+            reverse=True,
+        )
+
         return ResearchContext(
             top_patterns=patterns[:8],   # Top 8 to keep prompt lean
             hook_types=hook_types,
@@ -129,6 +194,8 @@ class ResearcherAgent:
                 "claims without numbers",
             ],
             winning_example=winning_example,
+            competitor_insights=competitor_insights[:30],  # Cap to keep prompt lean
+            competitor_names=sorted(competitor_names),
         )
 
     def format_for_prompt(self, context: ResearchContext) -> str:
@@ -144,6 +211,32 @@ class ResearcherAgent:
         proofs_str = "\n".join(f"  - {p}" for p in context.proof_points_available)
         avoid_str = "\n".join(f"  - {a}" for a in context.avoid)
 
+        # Build competitor section if data is available
+        competitor_section = ""
+        if context.competitor_insights:
+            # Group by competitor and show a sample from each
+            by_competitor: dict[str, list] = {}
+            for ci in context.competitor_insights:
+                by_competitor.setdefault(ci.competitor, []).append(ci)
+
+            comp_lines = []
+            for comp_name, insights in by_competitor.items():
+                # Show the longest-running ad as the sample (best performance signal)
+                sample = max(insights, key=lambda i: i.days_active or 0)
+                days_label = f", longest running: {sample.days_active}d" if sample.days_active else ""
+                comp_lines.append(
+                    f"  {comp_name} ({len(insights)} long-running active ads{days_label}):\n"
+                    f"    Sample: \"{sample.primary_text[:120]}...\"\n"
+                    f"    CTA: {sample.cta_button}"
+                )
+
+            competitor_section = f"""
+
+COMPETITOR INTELLIGENCE (from Meta Ad Library — {len(context.competitor_insights)} ads across {len(by_competitor)} competitors):
+{chr(10).join(comp_lines)}
+
+Use this to DIFFERENTIATE — do not copy competitor language. Beat them on specificity and proof."""
+
         return f"""REFERENCE AD INTELLIGENCE (from highest-performing Nerdy creatives):
 
 Winning creative patterns:
@@ -158,16 +251,19 @@ NEVER use:
 {avoid_str}
 
 Best performing example: "{context.winning_example}"
-"""
+{competitor_section}"""
 
     def print_context(self, context: ResearchContext):
         print(f"\n{'='*60}")
         print("RESEARCH CONTEXT")
         print(f"{'='*60}")
-        print(f"  Patterns extracted: {len(context.top_patterns)}")
-        print(f"  Hook types:         {', '.join(context.hook_types)}")
-        print(f"  Proof points:       {len(context.proof_points_available)}")
-        print(f"  Winning example:    {context.winning_example[:80]}...")
+        print(f"  Patterns extracted:   {len(context.top_patterns)}")
+        print(f"  Hook types:           {', '.join(context.hook_types)}")
+        print(f"  Proof points:         {len(context.proof_points_available)}")
+        print(f"  Winning example:      {context.winning_example[:80]}...")
+        print(f"  Competitor insights:  {len(context.competitor_insights)} ads from {len(context.competitor_names)} competitors")
+        if context.competitor_names:
+            print(f"  Competitors tracked:  {', '.join(context.competitor_names)}")
         print(f"{'='*60}\n")
 
 

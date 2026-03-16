@@ -567,6 +567,74 @@ def create_ab_test(campaign_id: str, req: ABTestRequest, background_tasks: Backg
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ─── Competitor Intelligence Endpoints ─────────────────────────────────────
+
+@app.get("/competitors/ads")
+def list_competitor_ads(competitor: Optional[str] = None):
+    """Return scraped competitor ads from reference_ads/competitors/*.json."""
+    import json as _json
+    competitors_dir = os.path.join(os.path.dirname(__file__), "..", "reference_ads", "competitors")
+    if not os.path.isdir(competitors_dir):
+        return {"ads": [], "competitors": [], "total": 0, "message": "No competitor data yet. Run: python competitor_scraper.py"}
+
+    all_ads = []
+    competitors_found = set()
+    for filename in sorted(os.listdir(competitors_dir)):
+        if not filename.endswith(".json"):
+            continue
+        filepath = os.path.join(competitors_dir, filename)
+        try:
+            with open(filepath) as f:
+                data = _json.load(f)
+            comp_key = data.get("competitor", filename.replace(".json", ""))
+            if competitor and comp_key != competitor:
+                continue
+            competitors_found.add(comp_key)
+            for ad in data.get("ads", []):
+                ad["competitor"] = comp_key
+                ad["display_name"] = data.get("display_name", comp_key)
+                all_ads.append(ad)
+        except Exception:
+            continue
+
+    return {
+        "ads": all_ads,
+        "competitors": sorted(competitors_found),
+        "total": len(all_ads),
+    }
+
+@app.get("/competitors/summary")
+def competitor_summary():
+    """Aggregated competitor intelligence summary."""
+    import json as _json
+    competitors_dir = os.path.join(os.path.dirname(__file__), "..", "reference_ads", "competitors")
+    if not os.path.isdir(competitors_dir):
+        return {"competitors": [], "total_ads": 0}
+
+    summary = []
+    total = 0
+    for filename in sorted(os.listdir(competitors_dir)):
+        if not filename.endswith(".json"):
+            continue
+        filepath = os.path.join(competitors_dir, filename)
+        try:
+            with open(filepath) as f:
+                data = _json.load(f)
+            ads = data.get("ads", [])
+            active = sum(1 for a in ads if a.get("is_active", True))
+            summary.append({
+                "competitor": data.get("competitor", filename.replace(".json", "")),
+                "display_name": data.get("display_name", ""),
+                "total_ads": len(ads),
+                "active_ads": active,
+                "scraped_date": data.get("scraped_date", "unknown"),
+            })
+            total += len(ads)
+        except Exception:
+            continue
+
+    return {"competitors": summary, "total_ads": total}
+
 @app.get("/campaigns/{campaign_id}/variants")
 def get_campaign_variants(campaign_id: str):
     db = get_db()
