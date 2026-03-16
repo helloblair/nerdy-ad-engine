@@ -2,30 +2,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import RadarChart from '../../components/RadarChart';
+import ScoreRing from '../../components/ScoreRing';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
-  const gradient = score >= 8
-    ? ['#c850c0', '#9b6cc8']
-    : score >= 7
-    ? ['#fbbf24', '#f97316']
-    : ['#ec4899', '#c850c0'];
-  const id = `grad-${Math.random().toString(36).slice(2, 8)}`;
-  const r = (size / 2) - 6; const circ = 2 * Math.PI * r; const dash = (score / 10) * circ;
-  return (
-    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
-      <defs>
-        <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={gradient[0]} />
-          <stop offset="100%" stopColor={gradient[1]} />
-        </linearGradient>
-      </defs>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--surface2)" strokeWidth={4} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={`url(#${id})`} strokeWidth={4} strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
-      <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="middle" style={{ fill: gradient[0], fontSize: size * 0.22, fontFamily: 'Space Mono', fontWeight: 700, transform: 'rotate(90deg)', transformOrigin: `${size/2}px ${size/2}px` }}>{score.toFixed(1)}</text>
-    </svg>
-  );
-}
+/* ScoreRing imported from ../../components/ScoreRing */
 
 function AdImage({ imageUrl }: { imageUrl?: string }) {
   const [error, setError] = useState(false);
