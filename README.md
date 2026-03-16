@@ -1,13 +1,24 @@
 # nerdy-ad-engine
 
-Autonomous ad copy generation system for Varsity Tutors (Nerdy).
-Generates, evaluates, and iterates Facebook/Instagram ad copy with minimal human intervention.
+Autonomous ad generation and evaluation pipeline for Varsity Tutors (Nerdy). Generates ad copy + images, evaluates across 7 dimensions using an LLM-as-judge, and self-heals through targeted iteration — all with minimal human intervention.
+
+## Key Features
+
+- **5-Agent Pipeline** — Researcher → Writer (Gemini 2.5 Flash) → ImageAgent (Imagen 4) → Evaluator (Claude Sonnet 4.6) → Fixer, orchestrated by LangGraph
+- **7-Dimension Evaluation** — 5 text dimensions + 2 visual dimensions (visual_brand_consistency, scroll_stopping_power) scored using Claude's vision capability
+- **Self-Healing Loop** — Detects weakest dimension, applies targeted fix, detects regressions, adapts strategy. Up to 3 iterations per ad
+- **Quality Ratchet** — Dynamic threshold that ratchets upward as more ads are approved (floor: 7.0, ceiling: 9.0)
+- **Persona Targeting** — 15 parent personas with psychology profiles, emotional triggers, and proven hooks from real Nerdy sales data
+- **A/B Variant Generation** — Same brief, 5 different hook strategies (pain_point, social_proof, urgency, aspirational, question)
+- **Human Survey + Confusion Matrix** — 90+ human ratings collected, 43.3% precision identified as key calibration gap
+- **Dual-Model Architecture** — Gemini writes, Claude judges. Cross-model tension prevents self-evaluation leniency
+- **Full Observability** — Langfuse tracing, cost estimation, analytics dashboard with trend visualization
 
 ## Stack
 - Frontend: Next.js 16 + Tailwind CSS → Vercel
 - Backend: FastAPI + LangGraph → Fly.io
 - Database: SQLite (local dev) or Supabase (deployed)
-- Agents: Gemini 2.5 Flash (generation) + Claude Sonnet (evaluation)
+- Models: Gemini 2.5 Flash (writer) + Imagen 4 (images) + Claude Sonnet 4.6 (evaluator + fixer)
 
 ## Local Development
 
@@ -78,7 +89,22 @@ SUPABASE_ANON_KEY=your-anon-key
 
 ### Architecture
 
-See `docs/` for decision log and architecture notes.
+```
+ResearcherAgent → WriterAgent → ImageAgent → EvaluatorAgent → Decision Gate
+                       ↑                                           │
+                       └──── FixerAgent ←──── (score < threshold) ─┘
+                                                    │
+                                              (3 iterations max)
+                                                    │
+                                              Flag for human review
+```
+
+See `docs/` for detailed documentation:
+- `docs/technical_writeup.md` — Architecture, evaluation framework, key findings
+- `docs/decision_log.md` — Every major technical decision with reasoning and tradeoffs
+- `docs/self_healing.md` — How the fix loop, regression detection, and escalation work
+- `docs/ai_tools_doc.md` — Models, prompts, and prompt engineering decisions
+- `docs/limitations.md` — Known gaps and what a production version would need
 
 ## Deployment
 
@@ -89,7 +115,7 @@ See `docs/` for decision log and architecture notes.
 | Variable | Description | Required |
 |---|---|---|
 | ANTHROPIC_API_KEY | Claude API key for evaluator + fixer agents | Yes |
-| GOOGLE_API_KEY | Gemini API key for writer agent | Yes |
+| GOOGLE_API_KEY | Gemini API key for writer + image agents | Yes |
 | DB_BACKEND | `sqlite` (default) or `supabase` | No |
 | SUPABASE_URL | Supabase project URL — leave unset to use SQLite | No |
 | SUPABASE_KEY | Supabase anon/service key — leave unset to use SQLite | No |

@@ -18,7 +18,7 @@ This pipeline: generate → evaluate → diagnose → fix → verify → adapt �
     └────┬─────┘
          ▼
     ┌──────────┐
-    │Evaluator │ ← scores 5 dimensions (Claude Sonnet, LLM-as-judge)
+    │Evaluator │ ← scores 5 text + 2 visual dimensions (Claude Sonnet, LLM-as-judge)
     └────┬─────┘
          ▼
     ┌──────────────┐
@@ -60,17 +60,33 @@ This pipeline: generate → evaluate → diagnose → fix → verify → adapt �
 ## The Feedback Signal
 
 The EvaluatorAgent produces the signal that drives healing. Each ad is scored
-on five weighted dimensions:
+on up to seven weighted dimensions — 5 text dimensions always, plus 2 visual
+dimensions when an image is present:
+
+**Text-only weights:**
 
 | Dimension            | Weight | What it measures                              |
 |----------------------|--------|-----------------------------------------------|
-| Clarity              | 0.20   | Is the message immediately understandable?    |
-| Value Proposition    | 0.25   | Does it communicate a compelling benefit?     |
-| CTA Strength         | 0.20   | Is the call-to-action specific and motivating?|
-| Brand Voice          | 0.20   | Does it match Varsity Tutors' tone?           |
-| Emotional Resonance  | 0.15   | Does it connect emotionally with parents?     |
+| Clarity              | 0.15   | Is the message immediately understandable?    |
+| Value Proposition    | 0.20   | Does it communicate a compelling benefit?     |
+| CTA Strength         | 0.15   | Is the call-to-action specific and motivating?|
+| Brand Voice          | 0.15   | Does it match Varsity Tutors' tone?           |
+| Emotional Resonance  | 0.35   | Does it connect emotionally with parents?     |
 
-The weighted aggregate must hit **7.0/10** to pass. When it doesn't, the
+**Full weights (with image):**
+
+| Dimension                 | Weight | What it measures                              |
+|---------------------------|--------|-----------------------------------------------|
+| Clarity                   | 0.10   | Is the message immediately understandable?    |
+| Value Proposition         | 0.15   | Does it communicate a compelling benefit?     |
+| CTA Strength              | 0.10   | Is the call-to-action specific and motivating?|
+| Brand Voice               | 0.10   | Does it match Varsity Tutors' tone?           |
+| Emotional Resonance       | 0.25   | Does it connect emotionally with parents?     |
+| Visual Brand Consistency  | 0.10   | Does the image match the brand aesthetic?     |
+| Scroll-Stopping Power     | 0.20   | Would this image stop a parent mid-scroll?    |
+
+The weighted aggregate must hit the **active threshold** (floor: 7.0/10, raised
+by the quality ratchet as more ads are approved) to pass. When it doesn't, the
 weakest dimension becomes the diagnosis — the specific thing that needs fixing.
 
 Each dimension also carries a **confidence score** (0.0–1.0). If any dimension
@@ -87,7 +103,7 @@ instruction for the WriterAgent. It does three things:
    approach (e.g., for emotional_resonance: "name the parent's specific fear
    in the first sentence")
 3. **Protects strong elements** — explicitly tells the writer what NOT to
-   change (any dimension scoring 7.5+)
+   change (any dimension scoring above threshold + 0.5, derived from the evaluator's active threshold)
 
 This surgical approach prevents the common failure mode of iterative generation:
 fixing one thing while breaking another.

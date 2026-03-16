@@ -53,13 +53,15 @@ The graph flow: `researcher → writer → evaluator → decision gate`. If the 
 
 ## [2026-03-09] — Dimension Weights: value_proposition at 25%, emotional_resonance at 15%
 
+> **UPDATE [2026-03-15]:** This entry documents the *original* weight decision. The weights have since been significantly rebalanced — see the [2026-03-15] entries below for current values. Emotional resonance is now 35% (text-only) / 25% (with image), the highest-weighted dimension.
+
 **Decision:** Weight the five evaluation dimensions unevenly: clarity (20%), value_proposition (25%), cta_strength (20%), brand_voice (20%), emotional_resonance (15%).
 
 **Why:** Not all dimensions matter equally for ad performance. Value proposition is the most predictive dimension for whether a human would actually engage with an ad — if you don't communicate a clear benefit in the first line, nothing else matters. I weighted it highest at 25%. Emotional resonance got the lowest weight at 15% because early calibration runs suggested it was the hardest dimension to score consistently, and I wanted to avoid amplifying noisy scores.
 
-**Tradeoffs:** Here's the honest part: **I got the emotional_resonance weight wrong.** The human ratings data (90 ratings via the survey) shows that humans weight emotional connection *much* more heavily than 15% implies. The pattern of human "bad" ratings correlates strongly with low emotional resonance scores. It should probably be closer to 25%. The current weight means the system can approve ads that feel flat and transactional — technically correct but emotionally dead. This is the single biggest calibration gap in the system, and it's the first thing I'd fix.
+**Tradeoffs:** Here's the honest part: **I got the emotional_resonance weight wrong.** The human ratings data (90+ ratings via the survey) showed that humans weight emotional connection *much* more heavily than 15% implies. The pattern of human "bad" ratings correlated strongly with low emotional resonance scores. **This has since been fixed** — emotional resonance is now the highest-weighted dimension at 35% (text-only) / 25% (with image).
 
-**Context:** Equal weights were tested first and rejected (see "What Didn't Work: Unweighted Scoring" below). Moving to unequal weights improved correlation with early human ratings, but the specific numbers were based on my judgment and a small calibration set, not rigorous statistical analysis. They're educated guesses that need tuning against the full human ratings dataset.
+**Context:** Equal weights were tested first and rejected (see "What Didn't Work: Unweighted Scoring" below). This entry is preserved because the decision-making process matters: starting with educated guesses, discovering they were wrong via the confusion matrix, and correcting with data is exactly how calibration should work.
 
 ---
 
@@ -207,15 +209,35 @@ And I should've built the abstraction layer *first* — I wired agents directly 
 
 ---
 
-## [2026-03-10] — Skipping Meta Ad Library Live Scraping
+## [2026-03-10] — ~~Skipping~~ Meta Ad Library Live Scraping
 
-**Decision:** Use static reference ads (curated JSON) instead of building a live Meta Ad Library scraping pipeline, deliberately forgoing the +10 bonus points.
+> **UPDATE [2026-03-15]:** This decision was reversed. Competitive intelligence scraping is now implemented — see the [2026-03-15] entry below.
 
-**Why:** The +10 bonus for competitive intelligence was the largest single bonus available — 40% of all bonus points. But the infrastructure required (headless browser via Playwright/Selenium for Meta's dynamically-rendered Ad Library, anti-detection measures, rate limiting, data parsing) would've taken 1-2 days and produced a fragile system. Meta's UI changes frequently, so any scraper would've been a maintenance liability. Meanwhile, the static reference ads serve the same calibration purpose: the ResearcherAgent extracts hooks, CTAs, and proof structures from them. The patterns don't need to be real-time for a pipeline generating ads for one brand.
+**Original Decision:** Use static reference ads (curated JSON) instead of building a live Meta Ad Library scraping pipeline, deliberately forgoing the +10 bonus points.
 
-**Tradeoffs:** No real-time competitor analysis. The reference patterns go stale as Varsity Tutors' creative strategy evolves. And I left 10 bonus points on the table. But the +14 from the other four bonuses (self-healing +7, multi-model +3, cost tracking +2, trend viz +2) was achievable with less risk and directly strengthened the core pipeline. Strategic point optimization: maximize points per hour invested.
+**Original Why:** The +10 bonus for competitive intelligence was the largest single bonus available — 40% of all bonus points. But the infrastructure required (headless browser via Playwright/Selenium for Meta's dynamically-rendered Ad Library, anti-detection measures, rate limiting, data parsing) would've taken 1-2 days and produced a fragile system. Meta's UI changes frequently, so any scraper would've been a maintenance liability.
 
-**Context:** I evaluated three approaches: live scraping (fragile, 1-2 days of work), third-party Ad Library API (no official Meta API exists, third-party ones are expensive and unreliable), and static reference analysis (zero infrastructure, deterministic). Chose the approach with the best effort-to-value ratio.
+**Context:** Chose the approach with the best effort-to-value ratio at the time — then reversed it once the core pipeline was stable.
+
+---
+
+## [2026-03-15] — Competitive Intelligence: Meta Ad Library Scraping for 8 Competitors
+
+**Decision:** Built a Playwright-based scraper (`competitor_scraper.py`) that collects publicly available ad data from Meta Ad Library for 8 competitors: Khan Academy, Chegg, Course Hero, Wyzant, Princeton Review, Kaplan, Sylvan Learning, and Kumon. Integrated the scraped data into the ResearcherAgent → WriterAgent generation pipeline.
+
+**Why:** The PRD is explicit: *"Great artists steal. Study our biggest competitor's ads. What patterns do you see? What hooks work? What CTAs convert?"* The Competitive Intelligence section specifies what to extract: recurring copy patterns, CTAs that appear most often, emotional angles, and how competitors handle specificity. This is the "great artists steal" approach — not copying, but studying what shapes work and fitting VT's brand into proven patterns. The +10 bonus (largest single bonus) justified revisiting the earlier skip decision once the core pipeline was stable.
+
+**How it works:**
+1. **Scraper** (`competitor_scraper.py`): Playwright renders Meta Ad Library pages for each competitor's Facebook Page ID. Extracts primary text, headline, CTA, platform, start date, and active status. Computes `days_active` from start dates. Only collects active ads — inactive ads dropped at scrape time. Results sorted by longevity. Output: `reference_ads/competitors/{competitor}.json`.
+2. **Quality filter** (ResearcherAgent): Only ads that are (a) currently active AND (b) running 30+ days feed into the pipeline. Longevity is the best public proxy for ad performance — if a competitor keeps paying to run it, it's working.
+3. **Integration**: `ResearcherAgent.extract_context()` loads competitor data, filters for quality, adds `CompetitorInsight` objects to `ResearchContext`. `format_for_prompt()` injects a "COMPETITOR INTELLIGENCE" section into the WriterAgent prompt showing each competitor's long-running ads, CTAs, and counts.
+4. **API endpoints**: `GET /competitors/ads` and `GET /competitors/summary` expose scraped data to the frontend.
+
+**Critical design decision — generation only, not evaluation:** The PRD's intent for competitor data is clear: feed the writer, not the judge. The evaluator scores against VT's own brand voice, not against competitors. Competitor data shapes what gets *generated*; VT's brand standards shape what gets *approved*.
+
+**Tradeoffs:** Playwright is a heavy dependency (~150MB for Chromium). Meta's Ad Library DOM structure is unstable — CSS class selectors will need updating when Meta redesigns. The scraper includes fallback selectors and saves debug screenshots on failure, but it's inherently fragile. The 30-day longevity filter is a judgment call — some effective seasonal ads run shorter. Existing ads in the database don't retroactively benefit; only future generations pick up competitor context.
+
+**Context:** This reverses the [2026-03-10] decision. The scraper runs standalone (`python competitor_scraper.py`), not as part of the main pipeline — it refreshes competitor JSON files, which the ResearcherAgent picks up automatically on the next campaign run.
 
 ---
 
@@ -225,7 +247,7 @@ And I should've built the abstraction layer *first* — I wired agents directly 
 
 **Why:** Because being honest about gaps is more valuable than pretending they don't exist. Here's the list:
 
-1. **Raise emotional_resonance weight from 15% to ~25%.** The confusion matrix data is unambiguous: humans care about emotional connection far more than 15% implies. Ads that humans rate "bad" despite high AI scores almost always have weak emotional resonance. This is the single highest-leverage config change available and it's literally one number in a dict.
+1. **~~Raise emotional_resonance weight from 15% to ~25%.~~** Done — raised to 35% (text-only) / 25% (with image), making it the highest-weighted dimension. The confusion matrix data was unambiguous and this was the single highest-leverage config change.
 
 2. **Deploy Langfuse from day 1.** I added observability after the pipeline was already running. If I'd had cost tracking and trace inspection from the start, I would've caught the evaluator leniency issue weeks earlier instead of discovering it through the human survey.
 
@@ -277,8 +299,34 @@ And I should've built the abstraction layer *first* — I wired agents directly 
 
 **Why 7 dimensions instead of sub-scores:** Adding visual_brand_consistency and scroll_stopping_power as first-class dimensions (rather than sub-scores under brand_voice and emotional_resonance) means they participate fully in the weighted average, threshold enforcement, fixer targeting, and iteration tracking. The evaluator uses Claude's vision API to literally look at the generated image alongside the copy. When no image is present, the system falls back to 5-dimension text-only scoring — fully backward compatible.
 
-**Weight rebalancing:** Text-only weights (unchanged): clarity 20%, value_proposition 25%, cta_strength 20%, brand_voice 20%, emotional_resonance 15%. Full 7-dimension weights: clarity 15%, value_proposition 20%, cta_strength 15%, brand_voice 15%, emotional_resonance 10%, visual_brand_consistency 10%, scroll_stopping_power 15%. Scroll-stopping power got 15% because it's the visual equivalent of the hook — if the image doesn't stop the scroll, the copy never gets read.
+**Weight rebalancing:** Text-only weights (rebalanced based on 146-parent survey): clarity 15%, value_proposition 20%, cta_strength 15%, brand_voice 15%, emotional_resonance 35%. Full 7-dimension weights: clarity 10%, value_proposition 15%, cta_strength 10%, brand_voice 10%, emotional_resonance 25%, visual_brand_consistency 10%, scroll_stopping_power 20%. Emotional resonance remains the highest-weighted dimension in both modes — the survey data showing it's the #1 predictor of parent clicks drove this decision. Scroll-stopping power got 20% because it's the visual equivalent of the hook — if the image doesn't stop the scroll, the copy never gets read.
 
-**Tradeoffs:** Image generation adds ~$0.04 per ad (Imagen 4) and ~2-3 seconds of latency per pipeline run. The visual evaluation adds token cost from sending base64 images to Claude's vision API. Persona-specific visual style prompts (15 personas × unique visual directions) add complexity to the ImageAgent, and Imagen occasionally bakes text into images (like "VARSITY TUTORS" watermarks) despite the prompt saying not to — that's an Imagen limitation, not a code issue. The 7-dimension weight rebalancing also reduced emotional_resonance from 15% to 10%, which contradicts the earlier finding that emotional resonance should be *higher* — but the visual dimensions needed weight budget from somewhere, and scroll_stopping_power partially captures the emotional impact that resonance measures in text.
+**Tradeoffs:** Image generation adds ~$0.04 per ad (Imagen 4) and ~2-3 seconds of latency per pipeline run. The visual evaluation adds token cost from sending base64 images to Claude's vision API. Persona-specific visual style prompts (15 personas × unique visual directions) add complexity to the ImageAgent, and Imagen occasionally bakes text into images (like "VARSITY TUTORS" watermarks) despite the prompt saying not to — that's an Imagen limitation, not a code issue.
 
 **Context:** The frontend now renders ads as Facebook and Instagram mockups side-by-side with the radar chart evaluation panel, making the v2 visual pipeline immediately visible in the demo. This is one of the strongest differentiators from other submissions — most will have text-only pipelines.
+
+---
+
+## [2026-03-15] — Quality Ratchet: Dynamic Threshold That Only Goes Up
+
+**Decision:** Implemented a quality ratchet (`quality_ratchet.py`) that dynamically raises the evaluation threshold based on the quality of already-approved ads, with the EvaluatorAgent's `active_threshold` property and `set_dynamic_threshold()` method.
+
+**Why:** A static 7.0 threshold means the 50th approved ad has the same quality bar as the 1st. As the ad library grows and the system demonstrates it can produce better output, the bar should rise. The ratchet computes the 25th percentile of all approved ad scores and uses that as the new threshold — with gradual headroom (+0.5 per 10 ads, ceiling at 9.0). Requires 10+ approved ads to activate. The ratchet can only go up, never down — quality never regresses.
+
+**Tradeoffs:** The ratchet is stateless (recomputed from DB on each pipeline run) and deterministic. It doesn't incorporate human ratings or conversion data, only AI evaluator scores. A production system should calibrate against human agreement, not just AI scores. The 25th percentile choice is conservative — it means 75% of existing ads would still pass if re-evaluated. A more aggressive ratchet (50th percentile) would raise quality faster but risk rejecting too many ads in early campaigns.
+
+**Context:** The `/evaluator/config` endpoint exposes the ratchet state (active, sample size, headroom) so the frontend can display the current effective threshold. The `get_approved_scores()` database method was added to both SQLite and Supabase implementations to support the ratchet query.
+
+---
+
+## [2026-03-15] — Evaluator Config as Single Source of Truth
+
+**Decision:** Made `evaluator_agent.py` the single source of truth for all evaluation logic — threshold, weights, dimensions — and wired everything else to derive from it. Added `/evaluator/config` API endpoint that exposes the full config to the frontend.
+
+**Why:** Hardcoded thresholds, weights, and dimension lists were scattered across 15+ files (backend main, fixer, tests, demo scripts, 5+ frontend pages). When weights changed, half the codebase was stale. This is exactly the kind of config drift that causes subtle bugs — a frontend showing "7.0 threshold" while the backend uses 7.5, or a test asserting against old weights.
+
+**How it works:** `EvaluatorAgent` defines `THRESHOLD`, `TEXT_WEIGHTS`, `FULL_WEIGHTS` as class-level constants. `main.py` imports these and derives `DB_TEXT_DIMS` and `DB_ALL_DIMS` (mapping evaluator dimension names to DB column names via `EVAL_TO_DB_DIM`). The `/evaluator/config` endpoint returns everything the frontend needs. The `useEvalConfig` hook in the frontend caches this with a singleton pattern and exposes it to all pages. Shared helpers (`scoreColor`, `scoreBg`, `scoreBorder`, `dimLabel`) derive from the config.
+
+**Tradeoffs:** The frontend falls back to a hardcoded `DEFAULT_CONFIG` if the API is unreachable — this is a snapshot that could go stale if the backend changes. But it's better than the previous state where every file had its own copy. The `cta_strength` → `cta_score` column mapping (`EVAL_TO_DB_DIM`) is an annoying historical artifact that could be cleaned up with a DB migration.
+
+**Context:** This was a major cohesion pass touching every file that referenced evaluator logic. The `ScoreRing` component was also extracted into a shared component to eliminate three local implementations.

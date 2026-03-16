@@ -5,7 +5,8 @@
 | Agent | Model | Why This Model |
 |-------|-------|----------------|
 | WriterAgent | Gemini 2.5 Flash | Fast, cheap, high creative variance. The writer needs to explore a wide output space, not reason carefully. |
-| EvaluatorAgent | Claude Sonnet 4.6 | Structured reasoning, consistent calibration, better at decomposing quality into dimensions. The judge must be precise. |
+| ImageAgent | Imagen 4 (via Gemini API) | Photorealistic ad creative generation. Same API client as WriterAgent — zero new dependencies. Generates persona-specific visual styles. |
+| EvaluatorAgent | Claude Sonnet 4.6 | Structured reasoning, consistent calibration, better at decomposing quality into dimensions. Uses vision capability for image evaluation. The judge must be precise. |
 | FixerAgent | Claude Sonnet 4.6 | Repair instruction quality directly determines whether the next iteration improves. A vague fix = wasted iteration = wasted cost. |
 | ResearcherAgent | None (deterministic) | Reads static JSON. Using an LLM to re-derive already-documented patterns would be slower, more expensive, and less reliable. |
 
@@ -46,27 +47,41 @@ Return ONLY a raw JSON object, no markdown, no backticks:
 
 ### EvaluatorAgent SYSTEM_PROMPT
 
+The evaluator's system prompt is extensive (~2000 tokens), calibrated against real Nerdy SAT messaging guidance. Key sections:
+
+**Calibration anchor:**
 ```
-You are an expert advertising evaluator specializing in educational
-marketing for Varsity Tutors (Nerdy). You have deep knowledge of:
-- What makes effective Facebook and Instagram ads for parents of K-12 students
-- Varsity Tutors' brand voice: outcome-focused, specific, warm but urgent, never corporate
-- The emotional landscape of parents worried about their child's academic performance
-
-You evaluate ads with ruthless honesty. A score of 7.0 means "this could run tomorrow."
-A score of 5.0 means "needs significant work." A score of 9.0+ means "genuinely exceptional."
-
-VARSITY TUTORS BRAND VOICE RULES:
-- Lead with outcomes and specific numbers, not features ("jumped 360 points" not "personalized tutoring")
-- Address parent pain directly — fear of their child falling behind, test anxiety, wasted potential
-- Never mention company history, awards, or corporate language
-- CTAs must be specific and action-oriented ("Book a Free Session" not "Learn More")
-- Emotional reframes work well: "Your child isn't struggling with math — they're struggling with confidence"
-
-You must respond with valid JSON only. No preamble, no markdown, no explanation outside the JSON.
+CRITICAL CONTEXT: In a survey of 146 real parents, only 43% of ads that this evaluator
+previously approved were rated positively by humans. The main failure mode was approving
+ads that were structurally sound but emotionally flat. You must be STRICTER than your
+instinct — when in doubt, score lower.
 ```
 
-The evaluator also receives a structured evaluation prompt requesting scores for clarity, value_proposition, cta_strength, brand_voice, and emotional_resonance — each with score, rationale, and confidence fields. Aggregate score is calculated server-side using weighted averages (not trusting the LLM's math).
+**The Parent Click Test** (applied to every ad before scoring):
+```
+Before scoring, ask yourself: "Would a real parent — tired, scrolling Instagram at 10pm,
+worried about their kid's future — actually stop and tap this?" If the honest answer is
+"probably not", the aggregate CANNOT exceed 6.5 regardless of how well-structured the copy is.
+```
+
+**Brand voice rules with automatic penalties** (score ≤5.0 if triggered):
+- Corporate language ("unlock potential", "tailored support", "custom strategies")
+- Fake scarcity ("spots filling fast", "limited enrollment")
+- Vague claims ("personalized", "expert" without mechanism)
+- Wrong terminology ("your student" instead of "your child", "SAT prep" instead of "SAT tutoring")
+
+**Emotional resonance rules** (35% weight — highest dimension):
+```
+Survey data from 146 real parents showed emotional resonance is the #1 predictor of whether
+a parent clicks. Ads that score well on structure but poorly on emotion get rejected by
+humans 70%+ of the time. Score this dimension HARD.
+```
+
+**Visual evaluation rules** (when image present):
+- Visual brand consistency: clean, modern, warm, educational aesthetic; no stock photography or clipart
+- Scroll-stopping power: emotional response, visual hierarchy, authenticity vs. corporate polish
+
+The evaluator receives a structured evaluation prompt requesting scores for up to 7 dimensions (5 text + 2 visual when image present) — each with score, rationale, and confidence fields. Aggregate score is calculated server-side using weighted averages (not trusting the LLM's math).
 
 ### FixerAgent Prompt (no SYSTEM_PROMPT — uses a structured user prompt)
 
@@ -118,7 +133,7 @@ The evaluator prompt includes anchoring phrases: "7.0 means this could run tomor
 
 ### What didn't work
 
-- **Holistic scoring** (single overall score without dimensions): Too variable. The same ad would score 6.5 on one run and 8.0 on the next. Breaking into 5 weighted dimensions reduced run-to-run variance from ~1.5 points to ~0.3 points.
+- **Holistic scoring** (single overall score without dimensions): Too variable. The same ad would score 6.5 on one run and 8.0 on the next. Breaking into weighted dimensions (now 5 text + 2 visual) reduced run-to-run variance from ~1.5 points to ~0.3 points.
 - **Non-JSON output**: The evaluator initially returned natural language with scores embedded. Parsing was fragile and broke on every third run. Switching to JSON-only with a strict schema and retry logic solved this.
 - **Single model for generation and evaluation**: Tested Claude Sonnet for both writing and judging. The evaluator was systematically lenient toward Claude-generated copy — it recognized and rewarded its own stylistic patterns. Switching the writer to Gemini broke this feedback loop.
-- **Unweighted scoring**: Equal weights across all 5 dimensions masked the importance of value proposition (the most predictive dimension for human approval). Weighting value_proposition at 25% and emotional_resonance at 15% improved correlation with early human ratings, though the weights still need further tuning.
+- **Unweighted scoring**: Equal weights across all dimensions masked what actually matters. After analyzing 146 parent ratings, emotional resonance emerged as the #1 predictor of human approval and was reweighted to 35% (text-only) / 25% (with image). The current weights are data-informed rather than hand-tuned guesses.

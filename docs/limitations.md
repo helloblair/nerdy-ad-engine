@@ -2,16 +2,16 @@
 
 ## Data & Research Limitations
 
-- **No live Meta Ad Library scraping.** Reference ads are a static JSON file (`reference_ads/varsity_tutors.json`) manually curated from public Meta Ad Library screenshots. The ResearcherAgent reads patterns from this file but cannot fetch new competitors' ads or detect creative trends in real time. A production version would need scheduled scraping with Meta's Ad Library API.
+- **~~No live Meta Ad Library scraping.~~** Resolved. A Playwright-based scraper (`competitor_scraper.py`) now collects active ads from 8 competitors via Meta Ad Library. Only active ads running 30+ days are fed into the generation pipeline. Remaining limitation: Meta's Ad Library DOM is unstable, so scraper selectors may need updating when Meta redesigns. The scraper runs on-demand (not scheduled), so competitor data goes stale between manual runs.
 - **No real A/B testing.** There is no click-through rate, conversion data, or impression data from live campaigns. The evaluation is purely LLM-as-judge — the system has never verified whether a high-scoring ad actually performs well in the real ad auction. The human survey provides a proxy signal, but it's not the same as live campaign metrics.
 - **No video generation.** The pipeline generates ad copy and static images (via Imagen 4) but no video creative. Real paid social increasingly favors short-form video (Reels/Stories). Video generation would require a different model pipeline.
 - **Facebook and Instagram only.** No TikTok, YouTube, Google Ads, or other platform support. Ad copy conventions differ significantly across platforms (character limits, tone expectations, CTA formats), so extending this would require platform-specific writer prompts and evaluation criteria.
 
 ## Evaluation & Quality Limitations
 
-- **Quality ratchet is conservative.** The dynamic threshold (quality ratchet) uses the 25th percentile of approved scores with a gradual ramp (+0.5 per 10 ads, ceiling at 9.0). It requires 10+ approved ads to activate. The ratchet is stateless and deterministic — it doesn't incorporate human ratings or conversion data, only AI evaluator scores. A production system should calibrate against human agreement, not just AI scores.
+- **Quality ratchet is conservative and AI-only.** The dynamic threshold (quality ratchet) uses the 25th percentile of approved scores with a gradual ramp (+0.5 per 10 ads, ceiling at 9.0). It requires 10+ approved ads to activate. The ratchet is stateless (recomputed from DB each run) and deterministic — it doesn't incorporate human ratings or conversion data, only AI evaluator scores. A production system should calibrate the ratchet against human agreement, not just AI scores. The ratchet floor is the evaluator's `THRESHOLD` (7.0) and it can only go up, never down.
 - **Human confusion matrix: 43.3% precision.** When the AI evaluator approves an ad, humans only agree 43.3% of the time. The AI is too lenient. This is the system's most important known gap. The evaluator needs recalibration using the human ratings as ground truth, but that feedback loop is not yet automated.
-- **Emotional resonance underweighted at 15%.** Human rating data suggests emotional connection matters more than the current weight implies. Should be ~25% based on the pattern of human "bad" ratings correlating with low emotional resonance scores. Weight adjustment is a manual config change, not learned.
+- **~~Emotional resonance underweighted at 15%.~~** Resolved. Reweighted to 35% (text-only) / 25% (with image) based on survey data from 146 parents showing it's the #1 predictor of human approval. Now the highest-weighted dimension in both evaluation modes.
 - **Evaluator confidence doesn't correlate well with accuracy.** The evaluator reports confidence scores per dimension, but high confidence (0.85+) doesn't reliably predict human agreement. Confidence calibration against the human ratings dataset hasn't been done yet.
 
 ## Infrastructure & Operations Limitations
@@ -24,7 +24,7 @@
 
 ## Pipeline Limitations
 
-- **Reference ads are static JSON, not a living dataset.** The ResearcherAgent extracts patterns from a fixed file. As Varsity Tutors' creative strategy evolves, these reference patterns become stale. No mechanism to refresh them automatically.
+- **VT reference ads are static JSON, not a living dataset.** The ResearcherAgent extracts VT's own patterns from a fixed file (`reference_ads/varsity_tutors.json`). As Varsity Tutors' creative strategy evolves, these reference patterns become stale. Competitor data is now refreshable via `competitor_scraper.py`, but VT's own reference ads still require manual curation.
 - **Fixer has dimension-specific strategies that are hand-written.** The `DIMENSION_STRATEGIES` dict in `fixer_agent.py` contains manually authored fix strategies for each dimension. These are effective but not learned from data — they're based on my analysis of the reference ads, not on what actually improved scores in past runs.
 - **Max 3 iterations is a hard cap, not adaptive.** Some ads might converge faster (1 iteration), others might need 5. The 3-iteration cap is fixed. The pipeline doesn't adjust iteration budget based on how close the score is to threshold or how much improvement each iteration yields.
 - **Writer retries on JSON parse failure, not on quality.** If the writer's output can't be parsed as JSON, it retries up to 3 times. But if the output is valid JSON that contains low-quality copy, there's no pre-evaluation quality gate — it goes straight to the evaluator.
