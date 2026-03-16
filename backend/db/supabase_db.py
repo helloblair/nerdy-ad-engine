@@ -86,6 +86,18 @@ class SupabaseDatabase(DatabaseInterface):
         ).execute()
         return result.data
 
+    # ── Quality Ratchet ─────────────────────────────────────────────────────
+
+    def get_approved_scores(self) -> list[float]:
+        result = (
+            self.client.table("evaluations")
+            .select("aggregate_score, ads!inner(status, created_at)")
+            .eq("ads.status", "approved")
+            .order("ads.created_at")
+            .execute()
+        )
+        return [r["aggregate_score"] for r in result.data]
+
     # ── Human Ratings ────────────────────────────────────────────────────────
 
     def insert_human_rating(self, data: dict) -> dict:

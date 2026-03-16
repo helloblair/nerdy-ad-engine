@@ -342,6 +342,22 @@ class SQLiteDatabase(DatabaseInterface):
         finally:
             conn.close()
 
+    def update_evaluation(self, ad_id: str, updates: dict) -> dict:
+        conn = self._connect()
+        try:
+            sets = ", ".join(f"{k} = ?" for k in updates)
+            conn.execute(
+                f"UPDATE evaluations SET {sets} WHERE ad_id = ?",
+                list(updates.values()) + [ad_id],
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM evaluations WHERE ad_id = ?", (ad_id,)
+            ).fetchone()
+            return self._row_to_dict(row)
+        finally:
+            conn.close()
+
     def get_evaluations_with_ads(self) -> list[dict]:
         conn = self._connect()
         try:
@@ -362,6 +378,22 @@ class SQLiteDatabase(DatabaseInterface):
                 }
                 results.append(d)
             return results
+        finally:
+            conn.close()
+
+    # ── Quality Ratchet ─────────────────────────────────────────────────────
+
+    def get_approved_scores(self) -> list[float]:
+        conn = self._connect()
+        try:
+            rows = conn.execute("""
+                SELECT e.aggregate_score
+                FROM evaluations e
+                JOIN ads a ON e.ad_id = a.id
+                WHERE a.status = 'approved'
+                ORDER BY a.created_at ASC
+            """).fetchall()
+            return [r["aggregate_score"] for r in rows]
         finally:
             conn.close()
 

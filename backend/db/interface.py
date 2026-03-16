@@ -83,12 +83,25 @@ class DatabaseInterface(ABC):
         ...
 
     @abstractmethod
+    def update_evaluation(self, ad_id: str, updates: dict) -> dict:
+        """Update the evaluation for a given ad_id. Returns the updated row dict."""
+        ...
+
+    @abstractmethod
     def get_evaluations_with_ads(self) -> list[dict]:
         """
         Return all evaluations joined with their ad's campaign_id, headline,
         iteration_number, and status. Each dict has an 'ads' sub-dict.
         Used by the /analytics/trends endpoint.
         """
+        ...
+
+    # ── Quality Ratchet ─────────────────────────────────────────────────────
+
+    @abstractmethod
+    def get_approved_scores(self) -> list[float]:
+        """Return aggregate_score for all approved ads (ordered by created_at ASC).
+        Used by the quality ratchet to compute a dynamic threshold."""
         ...
 
     # ── Human Ratings ────────────────────────────────────────────────────────
