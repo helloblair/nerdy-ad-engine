@@ -20,6 +20,9 @@ CREATE TABLE ads (
   cta_button TEXT NOT NULL,
   iteration_number INTEGER DEFAULT 1,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'flagged')),
+  cost_usd FLOAT DEFAULT 0,
+  variant_approach TEXT,
+  image_url TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -43,6 +46,17 @@ CREATE TABLE evaluations (
   cta_confidence NUMERIC(3,2),
   brand_voice_confidence NUMERIC(3,2),
   emotional_resonance_confidence NUMERIC(3,2),
+  clarity_confidence NUMERIC(3,2),
+  value_proposition_confidence NUMERIC(3,2),
+  cta_confidence NUMERIC(3,2),
+  brand_voice_confidence NUMERIC(3,2),
+  emotional_resonance_confidence NUMERIC(3,2),
+  visual_brand_consistency NUMERIC(3,1),
+  visual_brand_consistency_rationale TEXT,
+  visual_brand_consistency_confidence NUMERIC(3,2),
+  scroll_stopping_power NUMERIC(3,1),
+  scroll_stopping_power_rationale TEXT,
+  scroll_stopping_power_confidence NUMERIC(3,2),
   meets_threshold BOOLEAN DEFAULT FALSE,
   needs_human_review BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
